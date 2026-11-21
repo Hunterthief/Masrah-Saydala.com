@@ -7,8 +7,8 @@
   <meta name="description" content="احجز تذاكر عرض «مكتب حل المشاكل التافهة» — فريق مسرح صيدلة إسكندرية. الخميس 3 ديسمبر 2026، كلية الصيدلة، المبنى الجديد، الدور الثالث. الدفع عبر إنستاباي والتأكيد عبر واتساب.">
   <meta name="theme-color" content="#161311">
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
-  <link rel="stylesheet" href="css/main.css?v=6">
-  <script type="module" src="js/app.js?v=6"></script>
+  <link rel="stylesheet" href="css/main.css?v=7">
+  <script type="module" src="js/app.js?v=7"></script>
 </head>
 <body>
 <noscript><div class="banner banner-warn noscript">يتطلب الحجز تفعيل JavaScript في المتصفح.</div></noscript>
@@ -165,7 +165,7 @@
 
         <!-- STEP 2: shows the payment panel. Writes NOTHING to the database. -->
         <button type="button" id="book-btn" class="btn btn-gold btn-big">متابعة إلى الدفع</button>
-        <p class="hint">هذه الخطوة تعرض لك المبلغ وتعليمات التحويل فقط — <b>لا تُسجَّل أي تذكرة في النظام</b>. التسجيل يحدث فقط عند ضغط زر واتساب في الخطوة التالية.</p>
+        <p class="hint">هذه الخطوة تعرض لك المبلغ وتعليمات التحويل فقط — <b>لا تُسجَّـل أي تذكرة في النظام</b>. التسجيل يحدث فقط عند ضغط زر واتساب في الخطوة التالية.</p>
         <p id="book-error" class="error" role="alert" hidden></p>
       </fieldset>
     </div>
@@ -182,8 +182,8 @@
 
       <!-- STATE A: pre-commit. No reference, no ticket numbers — they don't exist yet. -->
       <div id="pay-pending" class="pay-pending">
-        <b>لم يُسجَّل أي شيء في النظام بعد.</b> راجع التفاصيل والمبلغ أدناه، حوّل عبر إنستاباي، ثم اضغط زر واتساب —
-        عندها فقط يُسجَّل الحجز وتظهر أرقام التذاكر في الرسالة.
+        <b>لم يُسجَّـل أي شيء في النظام بعد.</b> راجع التفاصيل والمبلغ أدناه، حوّل عبر إنستاباي، ثم اضغط زر واتساب —
+        عندها فقط يُسجَّـل الحجز وتظهر أرقام التذاكر في الرسالة.
       </div>
 
       <!-- STATE B: post-commit. Revealed only after the WhatsApp press succeeds. -->
@@ -216,8 +216,6 @@
         </div>
       </div>
 
-      <p class="hint">الحجز المسجَّل يبقى مؤقتًا لمدة <b class="ttl-echo">15</b> دقيقة؛ إن لم تصل صورة الدفع خلالها تعود المقاعد للمتاح تلقائيًا دون أي إجراء منك.</p>
-
       <!-- STEP 3: the ONLY database write in the whole flow -->
       <button type="button" id="wa-send" class="btn btn-wa btn-big">سجّل الحجز وأرسل صورة الدفع على واتساب</button>
       <!-- revealed after commit; a native anchor, so it can never be popup-blocked -->
@@ -228,7 +226,7 @@
         <textarea id="wa-preview" rows="9" readonly dir="rtl"></textarea>
         <button type="button" id="copy-message" class="btn btn-ghost">نسخ الرسالة</button>
         <span id="msg-feedback" class="copy-feedback" aria-live="polite"></span>
-        <p class="hint">لم يٌضبط رقم واتساب المنظمين بعد، لذلك الإرسال معطّل. انسخ الرسالة لمراجعتها؛ سيُفعَّل الزر تلقائيًا عند إضافة الرقم.</p>
+        <p class="hint">لم يٌضبط رقم واتساب المنظمين بعد، لذلك الإرسال معطّل. انسخ الرسالة لمراجعتها؛ سيُفعَّـل الزر تلقائيًا عند إضافة الرقم.</p>
       </div>
 
       <p class="hint">يفتح واتساب برسالة جاهزة — <b>أرفق صورة دفع إنستاباي يدويًا قبل الإرسال</b>؛ لا يمكن إرفاقها تلقائيًا.</p>
@@ -247,9 +245,9 @@
       <h2 id="how-title">خطوات الحجز</h2>
       <ol class="steps">
         <li>اختر العرض وعدد التذاكر، وأدخل رقم الموبايل.</li>
-        <li>اضغط «متابعة إلى الدفع» — تظهر لك التعليمات والمبلغ، ولا تُسجَّل أي تذكرة.</li>
+        <li>اضغط «متابعة إلى الدفع» — تظهر لك التعليمات والمبلغ، ولا تُسجَّـل أي تذكرة.</li>
         <li>حوّل المبلغ المطلوب عبر إنستاباي.</li>
-        <li>اضغط زر واتساب — هنا فقط يُسجَّل الحجز ويظهر رقم الحجز وأرقام التذاكر في الرسالة.</li>
+        <li>اضغط زر واتساب — هنا فقط يُسجَّـل الحجز ويظهر رقم الحجز وأرقام التذاكر في الرسالة.</li>
         <li>أرفق صورة الدفع يدويًا وأرسلها؛ بعد المراجعة تصلك التذاكر النهائية.</li>
       </ol>
     </div>
