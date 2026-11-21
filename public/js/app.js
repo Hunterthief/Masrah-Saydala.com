@@ -5,8 +5,9 @@
 //   Step 2  "متابعة إلى الدفع" (continueToPayment)  -> renders payment panel, STILL no DB
 //   Step 3  "سجّل الحجز وأرسل..." (#wa-send)        -> the ONLY POST /api/reservations
 //
-// No countdown UI: the temporary hold is enforced server-side via expires_at and the
-// availability query already ignores expired holds, so seats self-restore.
+// No countdown and no expiry figure shown to the user. The temporary hold is still
+// enforced server-side (expires_at + the availability query ignoring expired rows),
+// so an abandoned WhatsApp press self-releases its seats with no cron and no client timer.
 
 import { formatEGP, formatTime, formatDateAr, normalizePhone } from './format.js';
 import { buildWhatsAppMessage, buildWhatsAppUrl } from './whatsapp.js';
@@ -92,10 +93,6 @@ function render() {
   toggle('closed-banner', !d.booking_open);
   toggle('test-banner', !d.config.test_mode);
   updateHeadStatus();
-
-  document.querySelectorAll('.ttl-echo').forEach((el) => {
-    el.textContent = d.config.reservation_minutes;
-  });
 
   if (d.config.whatsapp_number) {
     const a = $('contact-wa');
@@ -219,7 +216,7 @@ function continueToPayment() {
   hideError();
   renderPendingPanel();
   render();
-  announce('راجع المبلغ وتعليمات التحويل. لا يُسجَّل الحجز إلا عند ضغط زر واتساب.');
+  announce('راجع المبلغ وتعليمات التحويل. لا يُسجَّـل الحجز إلا عند ضغط زر واتساب.');
   scrollToPayment();
 }
 
@@ -313,7 +310,7 @@ async function commitAndOpenWhatsApp() {
 
       const p = perfById(state.reservation.performance_id);
       const msg = buildWhatsAppMessage({
-        event: cfg ? state.data.event : state.data.event,
+        event: state.data.event,
         performance: p,
         reservation: state.reservation,
         customerName: state.customerName,
