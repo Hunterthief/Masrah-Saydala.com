@@ -16,10 +16,16 @@
 
 <header class="site-head">
   <span class="brand">فريق مسرح صيدلة إسكندرية</span>
-  <span class="head-stamp" aria-hidden="true">TOP SECRET</span>
+  <span id="head-status" class="head-pill idle">جارٍ التحقق…</span>
+  <a class="btn btn-gold btn-sm" href="#booking">احجز الآن</a>
 </header>
 
 <main>
+  <div id="test-banner" class="hazard" hidden>
+    🧪 وضع الاختبار مفعّل — الحجوزات تجريبية بالكامل.
+    <small>لا تحوّل أي مبلغ فعلي. الأرقام الصادرة تجريبية وتُمسح قبل فتح الحجز للجمهور.</small>
+  </div>
+
   <!-- A. Hero -->
   <section class="hero">
     <div class="hero-copy">
@@ -64,6 +70,14 @@
       <h2 id="booking-title">احجز تذكرتك</h2>
       <button id="refresh-avail" class="btn btn-ghost" type="button">تحديث المتاح ⟳</button>
     </div>
+
+    <ol id="flow" class="flow" aria-label="مراحل الحجز">
+      <li>اختر العرض</li>
+      <li>احجز مؤقتًا</li>
+      <li>حوّل المبلغ</li>
+      <li>أرسل على واتساب</li>
+    </ol>
+
     <p id="load-status" class="load-status">جارٍ التحقق من توفر التذاكر…</p>
     <div id="closed-banner" class="banner" hidden>الحجز لم يُفتح بعد — جارٍ استكمال إعدادات الدفع والتواصل. تابعونا!</div>
 
@@ -124,10 +138,11 @@
   <section id="payment" class="payment paper" hidden aria-labelledby="pay-title">
     <h2 id="pay-title">أكمل الدفع عبر إنستاباي</h2>
     <p class="pay-status">حجزك المؤقت جاهز. <b>لم يتم التحقق من الدفع بعد</b> — التأكيد يتم يدويًا عبر واتساب.</p>
+    <div id="pay-test" class="banner banner-warn" hidden>وضع الاختبار: هذه حجز تجريبي — <b>لا تحوّل أي مبلغ</b>.</div>
     <dl class="pay-details">
       <div><dt>رقم الحجز</dt><dd><code id="pay-ref" dir="ltr"></code></dd></div>
       <div><dt>المبلغ المطلوب</dt><dd><b id="pay-amount" class="amount"></b> ج.م</dd></div>
-      <div><dt>حوّل إلى (إنستاباي)</dt>
+      <div id="instapay-block"><dt>حوّل إلى (إنستاباي)</dt>
         <dd class="instapay-row">
           <code id="pay-instapay" dir="ltr"></code>
           <button type="button" id="copy-instapay" class="btn btn-ghost">نسخ</button>
@@ -141,6 +156,13 @@
     <p class="hint">أرقام حجز مبدئية تصبح نهائية بعد مراجعة الدفع يدويًا، ثم يرسل المنظمون التذاكر النهائية على واتساب.</p>
     <div id="pay-expired" class="banner banner-warn" hidden>انتهت مهلة الحجز المؤقت وأُعيدت المقاعد للمتاح. ابدأ حجزًا جديدًا.</div>
     <a id="wa-link" class="btn btn-wa btn-big" target="_blank" rel="noopener">أرسل صورة الدفع على واتساب</a>
+    <div id="wa-fallback" hidden>
+      <label class="label" for="wa-preview">نص رسالة واتساب الجاهزة</label>
+      <textarea id="wa-preview" rows="9" readonly dir="rtl"></textarea>
+      <button type="button" id="copy-message" class="btn btn-ghost">نسخ الرسالة</button>
+      <span id="msg-feedback" class="copy-feedback" aria-live="polite"></span>
+      <p class="hint">لم يُضبط رقم واتساب المنظمين بعد، поэтому زر الإرسال معطّل. انسخ الرسالة لمراجعتها؛ سيُفعَّل الزر تلقائيًا عند إضافة الرقم.</p>
+    </div>
     <p class="hint">يفتح واتساب برسالة جاهزة — <b>أرفق صورة الدفع يدويًا قبل الإرسال</b>؛ لا يمكن إرفاقها تلقائيًا.</p>
     <button type="button" id="new-booking" class="btn btn-ghost">بدء حجز جديد</button>
   </section>
