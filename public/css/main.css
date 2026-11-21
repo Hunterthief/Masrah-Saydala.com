@@ -114,7 +114,9 @@ main { max-width:1060px; margin:0 auto; padding:0 1rem; }
 fieldset { border:none; padding:0; margin:0; }
 .field { margin-bottom:1.1rem; }
 .field label, .field .label, .label { display:block; font-weight:600; margin-bottom:.4rem; }
-input[type="text"] { width:100%; padding:.8rem 1rem; border-radius:10px; font:inherit; border:1px solid rgba(201,163,92,.4); background:var(--coal); color:var(--paper); }
+input[type="text"], input[type="tel"] { width:100%; padding:.8rem 1rem; border-radius:10px; font:inherit; border:1px solid rgba(201,163,92,.4); background:var(--coal); color:var(--paper); }
+input[type="tel"] { text-align:right; font-family:var(--font-mono); letter-spacing:.5px; }
+input[type="tel"]:invalid:not(:placeholder-shown) { border-color:var(--burgundy); }
 input::placeholder { color:var(--paper-dim); opacity:.7; font-size:.85rem; }
 textarea { width:100%; font-family:var(--font-mono); font-size:.82rem; line-height:1.7; padding:.8rem; border-radius:10px; border:1px solid rgba(143,36,51,.45); background:var(--coal); color:#e8d9b5; resize:vertical; margin-bottom:.6rem; }
 .qty { display:inline-flex; align-items:center; gap:.75rem; }
