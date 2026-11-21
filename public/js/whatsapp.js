@@ -1,10 +1,11 @@
 // Pure WhatsApp handoff helpers — shared by the browser app and the test suite.
 import { formatEGP, formatTime } from './format.js';
 
-export function buildWhatsAppMessage({ event, performance, reservation, customerName }) {
+export function buildWhatsAppMessage({ event, performance, reservation, customerName, customerPhone }) {
   const lines = [
     `مرحبًا، أريد تأكيد حجز عرض «${event.name}»`,
     customerName ? `الاسم: ${customerName}` : null,
+    customerPhone ? `رقم الموبايل: ${customerPhone}` : null,
     `العرض: ${performance.id} — ${performance.name}`,
     `فتح الأبواب: ${formatTime(performance.doors_open)} — بداية العرض: ${formatTime(performance.starts_at)}`,
     `عدد التذاكر: ${reservation.quantity}`,
