@@ -1,5 +1,7 @@
 // Masrah Saydala — purchase page logic (vanilla ES module, no dependencies).
-// Tickets are written to the database only when the user clicks the WhatsApp handoff button.
+// Two explicit steps: (1) #book-btn creates the temporary hold in the database,
+// (2) #wa-link (a plain anchor) hands off to WhatsApp. No popup juggling needed,
+// because the WhatsApp click is its own user gesture.
 import { formatEGP, formatTime, formatDateAr, formatExpiry, normalizePhone } from './format.js';
 import { buildWhatsAppMessage, buildWhatsAppUrl } from './whatsapp.js';
 
@@ -16,7 +18,8 @@ const state = {
   reservation: null,
   customerName: '',
   customerPhone: '',
-  keys: new Map(), // idempotency keys per performance:quantity attempt
+  key: null,        // one idempotency key per booking attempt
+  keySig: null,     // "performance:quantity" that key belongs to
   clockOffset: 0,
   timer: null,
   submitting: false,
@@ -150,13 +153,10 @@ function applyInteractionState() {
   const fs = $('booking-fieldset');
   if (fs) fs.disabled = !open;
 
-  const btn = $('wa-book-btn');
+  const btn = $('book-btn');
   if (btn) {
-    const label = state.data?.config.whatsapp_number
-      ? 'أرسل صورة دفع إنستاباي على واتساب'
-      : 'احجز وعاين رسالة واتساب';
     btn.disabled = !open || state.submitting;
-    btn.textContent = state.submitting ? 'جارٍ إنشاء الحجز وفتح واتساب…' : label;
+    btn.textContent = state.submitting ? 'جارٍ إنشاء الحجز…' : 'احجز مؤقتًا وأكمل الدفع';
   }
 }
 
@@ -208,16 +208,8 @@ function hideError() {
   toggle('book-error', true);
 }
 
-function getIdempotencyKey(sig) {
-  let key = state.keys.get(sig);
-  if (!key) {
-    key = crypto.randomUUID();
-    state.keys.set(sig, key);
-  }
-  return key;
-}
-
-async function reserveAndOpenWhatsApp() {
+// STEP 2 — create the temporary hold. This is the only place that writes to the DB.
+async function submitBooking() {
   if (!state.selected || state.submitting || state.reservation) return;
 
   const phoneInput = $('phone-input');
@@ -231,23 +223,15 @@ async function reserveAndOpenWhatsApp() {
   const pid = state.selected;
   const qty = state.qty;
   const sig = `${pid}:${qty}`;
-  const key = getIdempotencyKey(sig);
+
+  // Same key on a pure retry of the same choice; a changed choice starts fresh.
+  if (state.keySig !== sig) {
+    state.key = crypto.randomUUID();
+    state.keySig = sig;
+  }
 
   state.customerName = ($('name-input')?.value || '').trim();
   state.customerPhone = phone;
-
-  const hasWhatsAppNumber = !!state.data?.config.whatsapp_number;
-
-  // Open a blank tab synchronously during the click gesture to avoid popup blocking.
-  // If the reservation succeeds we navigate it to WhatsApp; if it fails we close it.
-  let waWindow = null;
-  if (hasWhatsAppNumber) {
-    try {
-      waWindow = window.open('', '_blank');
-    } catch {
-      waWindow = null;
-    }
-  }
 
   state.submitting = true;
   hideError();
@@ -260,7 +244,7 @@ async function reserveAndOpenWhatsApp() {
       body: JSON.stringify({
         performance_id: pid,
         quantity: qty,
-        idempotency_key: key,
+        idempotency_key: state.key,
         customer_name: state.customerName,
         customer_phone: phone,
       }),
@@ -269,57 +253,26 @@ async function reserveAndOpenWhatsApp() {
     const data = await res.json().catch(() => null);
 
     if (res.ok && data?.ok) {
-      // FIX: retire the key once this attempt succeeded. Otherwise a later
-      // booking of the same size would replay this (possibly expired) row.
-      state.keys.delete(sig);
-
       state.reservation = data.reservation;
+      // Retire the key: this attempt is done. Without this, booking the same
+      // size again later would replay this row — possibly after it expired.
+      state.key = null;
+      state.keySig = null;
       renderPayment();
-
-      const p = perfById(state.reservation.performance_id);
-      const msg = buildWhatsAppMessage({
-        event: state.data.event,
-        performance: p,
-        reservation: state.reservation,
-        customerName: state.customerName,
-        customerPhone: state.customerPhone,
-      });
-
-      if (hasWhatsAppNumber) {
-        const url = buildWhatsAppUrl(state.data.config.whatsapp_number, msg);
-
-        if (waWindow && !waWindow.closed) {
-          try {
-            waWindow.opener = null;
-            waWindow.location.href = url;
-            announce('تم إنشاء حجز مؤقت وفتح واتساب.');
-          } catch {
-            showError('تم الحجز، لكن المتصفح منع فتح واتساب تلقائيًا. اضغط زر واتساب في قسم الدفع.');
-            announce('تم إنشاء حجز مؤقت. افتح واتساب من الزر الظاهر في قسم الدفع.');
-          }
-        } else {
-          showError('تم الحجز، لكن المتصفح منع فتح واتساب تلقائيًا. اضغط زر واتساب في قسم الدفع.');
-          announce('تم إنشاء حجز مؤقت. افتح واتساب من الزر الظاهر في قسم الدفع.');
-        }
-      } else {
-        announce('تم إنشاء حجز مؤقت. راجع رسالة واتساب في قسم الدفع.');
-      }
-
+      announce('تم إنشاء حجزك المؤقت. أكمل الدفع عبر إنستاباي.');
       loadAvailability();
     } else {
-      if (waWindow && !waWindow.closed) waWindow.close();
-
       showError(data?.error?.message || 'حدث خطأ غير متوقع. حاول مرة أخرى.');
       const code = data?.error?.code;
-      // FIX: a hard rejection means this attempt is over — drop the key so the
-      // next try isn't pinned to a dead record. Network errors keep it (safe retry).
+      // Hard rejection = attempt is over, so drop the key too.
       if (['INSUFFICIENT_CAPACITY', 'PERFORMANCE_DISABLED', 'BOOKING_CLOSED', 'IDEMPOTENCY_CONFLICT'].includes(code)) {
-        state.keys.delete(sig);
+        state.key = null;
+        state.keySig = null;
         await loadAvailability();
       }
+      // Network/unknown errors keep the key, so a retry cannot double-book.
     }
   } catch {
-    if (waWindow && !waWindow.closed) waWindow.close();
     showError('تعذر الاتصال بالخادم. تحقق من الإنترنت وحاول مجددًا.');
   } finally {
     state.submitting = false;
@@ -438,7 +391,8 @@ function expireReservation() {
 function newBooking() {
   clearInterval(state.timer);
   state.reservation = null;
-  state.keys = new Map();
+  state.key = null;
+  state.keySig = null;
   state.qty = 1;
   state.customerPhone = '';
 
@@ -565,7 +519,7 @@ function init() {
 
   $('qty-minus')?.addEventListener('click', () => setQty(state.qty - 1));
   $('qty-plus')?.addEventListener('click', () => setQty(state.qty + 1));
-  $('wa-book-btn')?.addEventListener('click', reserveAndOpenWhatsApp);
+  $('book-btn')?.addEventListener('click', submitBooking);
   $('copy-instapay')?.addEventListener('click', () => copyText(state.data?.config.instapay_address || '', $('copy-feedback')));
   $('copy-message')?.addEventListener('click', () => copyText($('wa-preview')?.value || '', $('msg-feedback')));
   $('new-booking')?.addEventListener('click', newBooking);
