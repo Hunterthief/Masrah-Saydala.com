@@ -14,6 +14,18 @@
 <noscript><div class="banner banner-warn noscript">يتطلب الحجز تفعيل JavaScript في المتصفح.</div></noscript>
 <a class="skip-link" href="#booking">تخطَّ إلى الحجز</a>
 
+<!-- case index spine: the investigation board -->
+<nav class="spine" aria-label="فهرس المشاهد">
+  <span class="spine-thread" aria-hidden="true"></span>
+  <a class="spine-tab" data-go="01" href="#scene-01"><i></i><b>01</b><span>الملصق</span></a>
+  <a class="spine-tab" data-go="02" href="#scene-02"><i></i><b>02</b><span>الملف</span></a>
+  <a class="spine-tab" data-go="03" href="#booking"><i></i><b>03</b><span>الحجز</span></a>
+  <a class="spine-tab" data-go="04" href="#payment"><i></i><b>04</b><span>الدفع</span></a>
+  <a class="spine-tab" data-go="05" href="#scene-05"><i></i><b>05</b><span>الإجراءات</span></a>
+  <a class="spine-tab" data-go="06" href="#scene-06"><i></i><b>06</b><span>المعلومات</span></a>
+  <a class="spine-tab" data-go="end" href="#scene-end"><i></i><b>✕</b><span>إغلاق</span></a>
+</nav>
+
 <header class="site-head">
   <span class="brand">فريق مسرح صيدلة إسكندرية</span>
   <span id="head-status" class="head-pill idle">جارٍ التحقق…</span>
@@ -21,8 +33,13 @@
 </header>
 
 <main>
+  <div id="test-banner" class="hazard" hidden>
+    🧪 وضع الاختبار مفعّل — الحجوزات تجريبية بالكامل.
+    <small>لا تحوّل أي مبلغ فعلي. الأرقام الصادرة تجريبية وتُمسح قبل فتح الحجز للجمهور.</small>
+  </div>
+
   <!-- SCENE 01 — HERO / POSTER -->
-  <section class="hero scene scene--load" data-scene="01">
+  <section id="scene-01" class="hero scene scene--load" data-scene="01">
     <div class="scene-slate" aria-hidden="true" dir="ltr">
       <b>SCENE 01</b>
       <span>A NEW ORIGINAL SHOW ★ PETTY PROBLEMS SOLVERS ★ 03/12/2026</span>
@@ -55,7 +72,7 @@
   </section>
 
   <!-- SCENE 02 — CASE FILE -->
-  <section class="case-file scene" data-scene="02">
+  <section id="scene-02" class="case-file scene" data-scene="02">
     <div class="scene-slate" aria-hidden="true" dir="ltr">
       <b>SCENE 02</b>
       <span>CASE FILE / 03·12·2026 — TOP SECRET</span>
@@ -64,8 +81,10 @@
       <div class="folder-tab" aria-hidden="true">ملف القضية № 2026-12</div>
       <div class="paper">
         <h2 id="about-title">عن العرض</h2>
-        <p>على مكتبٍ قديم تتكدّس ملفات لا يأخذها أحد على محمل الجد… فريق مسرح صيدلة إسكندرية يفتح التحقيق في <b>«مكتب حل المشاكل التافهة»</b>: عرض مسرحي كوميدي بأجواء بوليسية كلاسيكية.</p>
-        <p>لا تفاصيل إضافية عن الأحداث — الملف مختوم بختم «سري للغاية»، والحقيقة تٌكشف على المسرح فقط.</p>
+        <div class="paper-body">
+          <p>على مكتبٍ قديم تتكدّس ملفات لا يأخذها أحد على محمل الجد… فريق مسرح صيدلة إسكندرية يفتح التحقيق في <b>«مكتب حل المشاكل التافهة»</b>: عرض مسرحي كوميدي بأجواء بوليسية كلاسيكية.</p>
+          <p>لا تفاصيل إضافية عن الأحداث — الملف مختوم بختم «سري للغاية»، والحقيقة تُكشف على المسرح فقط.</p>
+        </div>
         <span class="stamp" aria-hidden="true">TOP SECRET<br>سري للغاية</span>
       </div>
     </div>
@@ -91,7 +110,7 @@
       </ol>
 
       <p id="load-status" class="load-status">جارٍ التحقق من توفر التذاكر…</p>
-      <div id="closed-banner" class="banner" hidden>الحجز لم يٌفتح بعد — جارٍ استكمال إعدادات الدفع والتواصل. تابعونا!</div>
+      <div id="closed-banner" class="banner" hidden>الحجز لم يُفتح بعد — جارٍ استكمال إعدادات الدفع والتواصل. تابعونا!</div>
 
       <div class="perf-grid" role="group" aria-label="اختيار العرض">
         <button type="button" class="perf-card" id="perf-A" data-perf="A" aria-pressed="false" disabled>
@@ -127,7 +146,7 @@
         <div class="field">
           <label for="phone-input">رقم الموبايل (مطلوب لمطابقة الدفع)</label>
           <input id="phone-input" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" dir="ltr" required placeholder="01012345678">
-          <p class="hint">يٌحفظ الاسم والرقم مع الحجز لمطابقة تحويل إنستاباي، ويظهران في رسالة واتساب. لن يُعرضا للعامة.</p>
+          <p class="hint">يُحفظ الاسم والرقم مع الحجز لمطابقة تحويل إنستاباي، ويظهران في رسالة واتساب. لن يُعرضا للعامة.</p>
         </div>
         <div class="field">
           <span class="label" id="qty-label">عدد التذاكر</span>
@@ -160,7 +179,7 @@
     <div class="scene-content">
       <h2 id="pay-title">أكمل الدفع عبر إنستاباي</h2>
       <p class="pay-status">حجزك المؤقت جاهز. <b>لم يتم التحقق من الدفع بعد</b> — التأكيد يتم يدويًا عبر واتساب.</p>
-      <div id="pay-test" class="banner banner-warn" hidden>وضع الاختبار: هذه حجز تجريبي — <b>لا تحوّل أي مبلغ</b>.</div>
+      <div id="pay-test" class="banner banner-warn" hidden>وضع الاختبار: هذا حجز تجريبي — <b>لا تحوّل أي مبلغ</b>.</div>
       <dl class="pay-details">
         <div><dt>رقم الحجز</dt><dd><code id="pay-ref" dir="ltr"></code></dd></div>
         <div><dt>المبلغ المطلوب</dt><dd><b id="pay-amount" class="amount"></b> ج.م</dd></div>
@@ -183,7 +202,7 @@
         <textarea id="wa-preview" rows="9" readonly dir="rtl"></textarea>
         <button type="button" id="copy-message" class="btn btn-ghost">نسخ الرسالة</button>
         <span id="msg-feedback" class="copy-feedback" aria-live="polite"></span>
-        <p class="hint">لم يُضبط رقم واتساب المنظمين بعد، لذلك زر الإرسال معطل. انسخ الرسالة لمراجعتها؛ سيُفعَّل الزر تلقائيًا عند إضافة الرقم.</p>
+        <p class="hint">لم يُضبط رقم واتساب المنظمين بعد، لذلك زر الإرسال معطّل. انسخ الرسالة لمراجعتها؛ سيُفعَّل الزر تلقائيًا عند إضافة الرقم.</p>
       </div>
       <p class="hint">يفتح واتساب برسالة جاهزة — <b>أرفق صورة دفع إنستاباي يدويًا قبل الإرسال</b>؛ لا يمكن إرفاقها تلقائيًا.</p>
       <button type="button" id="new-booking" class="btn btn-ghost">بدء حجز جديد</button>
@@ -191,7 +210,7 @@
   </section>
 
   <!-- SCENE 05 — PROCEDURE -->
-  <section class="how scene" data-scene="05">
+  <section id="scene-05" class="how scene" data-scene="05">
     <div class="scene-slate" aria-hidden="true" dir="ltr">
       <b>SCENE 05</b>
       <span>PROCEDURE — FIVE STEPS TO CONFIRM</span>
@@ -209,7 +228,7 @@
   </section>
 
   <!-- SCENE 06 — INTEL -->
-  <section class="info paper scene" data-scene="06">
+  <section id="scene-06" class="info paper scene" data-scene="06">
     <div class="scene-slate" aria-hidden="true" dir="ltr">
       <b>SCENE 06</b>
       <span>FACULTY OF PHARMACY · NEW BUILDING · THIRD FLOOR</span>
@@ -231,7 +250,7 @@
   </section>
 </main>
 
-<footer class="site-foot scene scene--end">
+<footer id="scene-end" class="site-foot scene" data-scene="end">
   <div class="scene-slate" aria-hidden="true" dir="ltr">
     <b>END OF FILE</b>
     <span>TOP SECRET — سري للغاية</span>
