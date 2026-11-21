@@ -20,7 +20,7 @@
       "database_name": "masrah-saydala",
       // TODO: replace with the real ID from `npx wrangler d1 list`
       // (or Cloudflare dashboard -> Storage & Databases -> D1 -> masrah-saydala).
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "af35e2e2-c511-40c7-9439-17f32273eb4a",
       "migrations_dir": "migrations"
     }
   ]
