@@ -1,0 +1,16 @@
+{
+  "name": "masrah-saydala",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WhatsApp-first theater ticket booking page — مكتب حل المشاكل التافهة",
+  "scripts": {
+    "dev": "wrangler pages dev",
+    "test": "node --test test/booking.test.js",
+    "db:migrate:local": "wrangler d1 migrations apply masrah-saydala --local",
+    "db:migrate:remote": "wrangler d1 migrations apply masrah-saydala --remote",
+    "deploy": "wrangler pages deploy"
+  },
+  "devDependencies": { "wrangler": "^4.0.0" },
+  "engines": { "node": ">=22.13.0" }
+}
