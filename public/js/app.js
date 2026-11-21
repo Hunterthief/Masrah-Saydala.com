@@ -33,10 +33,32 @@ async function loadAvailability() {
   }
 }
 
+function updateHeadStatus() {
+  const d = state.data, pill = $('head-status');
+  if (!d) { pill.textContent = 'جارٍ التحقق…'; pill.className = 'head-pill idle'; return; }
+  if (d.config.test_mode) { pill.textContent = 'وضع الاختبار'; pill.className = 'head-pill test'; }
+  else if (d.booking_open) { pill.textContent = 'الحجز مفتوح'; pill.className = 'head-pill open'; }
+  else { pill.textContent = 'الحجز مغلق'; pill.className = 'head-pill closed'; }
+}
+
+function updateFlow() {
+  const hasSel = !!state.selected, hasRes = !!state.reservation;
+  document.querySelectorAll('#flow li').forEach((li, i) => {
+    const n = i + 1;
+    let cls = '';
+    if (n === 1) cls = hasSel ? 'done' : 'active';
+    else if (n === 2) cls = hasRes ? 'done' : (hasSel ? 'active' : '');
+    else cls = hasRes ? 'active' : '';
+    li.className = cls;
+  });
+}
+
 function render() {
   const d = state.data;
   if (!d) return;
   $('closed-banner').hidden = d.booking_open;
+  $('test-banner').hidden = !d.config.test_mode;
+  updateHeadStatus();
   document.querySelectorAll('.ttl-echo').forEach((el) => { el.textContent = d.config.reservation_minutes; });
   if (d.config.whatsapp_number) {
     const a = $('contact-wa');
@@ -63,6 +85,7 @@ function render() {
   if (state.selected) setQty(Math.min(state.qty, maxQty()));
   applyInteractionState();
   renderSummary();
+  updateFlow();
 }
 
 function applyInteractionState() {
@@ -107,7 +130,6 @@ async function submitBooking() {
   if (!state.selected || state.submitting || state.reservation) return;
   const pid = state.selected, qty = state.qty;
   const sig = `${pid}:${qty}`;
-  // Same key on pure retries; a changed selection starts a fresh attempt.
   if (state.keySig !== sig) { state.key = crypto.randomUUID(); state.keySig = sig; }
   state.customerName = $('name-input').value.trim();
   state.submitting = true;
@@ -123,7 +145,7 @@ async function submitBooking() {
     if (res.ok && data?.ok) {
       state.reservation = data.reservation;
       renderPayment();
-      announce('تم إنشاء حجزك المؤقت. أكمل الدفع عبر إنستاباي.');
+      announce('تم إنشاء حجزك المؤقت.');
       loadAvailability();
     } else {
       showError(data?.error?.message || 'حدث خطأ غير متوقع. حاول مرة أخرى.');
@@ -131,7 +153,7 @@ async function submitBooking() {
       if (['INSUFFICIENT_CAPACITY', 'PERFORMANCE_DISABLED', 'BOOKING_CLOSED'].includes(code)) await loadAvailability();
     }
   } catch {
-    showError('تعذر الاتصال بالخادم. تحقق من الإنترنت وحاول مجددًا.'); // retry keeps the same key
+    showError('تعذر الاتصال بالخادم. تحقق من الإنترنت وحاول مجددًا.');
   } finally {
     state.submitting = false;
     $('book-btn').textContent = 'احجز مؤقتًا وأكمل الدفع';
@@ -141,12 +163,17 @@ async function submitBooking() {
 
 function renderPayment() {
   const r = state.reservation;
+  const cfg = state.data.config;
   const p = perfById(r.performance_id);
   $('payment').hidden = false;
   $('pay-ref').textContent = r.reference;
   $('pay-amount').textContent = formatEGP(r.total_piasters);
-  $('pay-instapay').textContent = state.data.config.instapay_address;
   $('pay-expiry').textContent = formatExpiry(r.expires_at);
+  $('pay-test').hidden = !cfg.test_mode;
+  const noPaymentDetails = cfg.test_mode && !cfg.instapay_address;
+  $('instapay-block').hidden = noPaymentDetails;
+  if (!noPaymentDetails) $('pay-instapay').textContent = cfg.instapay_address;
+
   const list = $('pay-tickets');
   list.textContent = '';
   for (const t of r.ticket_numbers) {
@@ -154,11 +181,20 @@ function renderPayment() {
     li.dir = 'ltr'; li.textContent = t;
     list.appendChild(li);
   }
+
   const msg = buildWhatsAppMessage({ event: state.data.event, performance: p, reservation: r, customerName: state.customerName });
   const wa = $('wa-link');
-  wa.href = buildWhatsAppUrl(state.data.config.whatsapp_number, msg);
-  wa.classList.remove('disabled');
-  wa.removeAttribute('aria-disabled');
+  if (cfg.whatsapp_number) {
+    wa.href = buildWhatsAppUrl(cfg.whatsapp_number, msg);
+    wa.hidden = false;
+    wa.classList.remove('disabled');
+    wa.removeAttribute('aria-disabled');
+    $('wa-fallback').hidden = true;
+  } else {
+    wa.hidden = true;
+    $('wa-fallback').hidden = false;
+    $('wa-preview').value = msg;
+  }
   $('pay-expired').hidden = true;
   $('name-input').disabled = true;
   applyInteractionState(); render(); startCountdown();
@@ -186,6 +222,7 @@ function expireReservation() {
   wa.removeAttribute('href');
   wa.classList.add('disabled');
   wa.setAttribute('aria-disabled', 'true');
+  $('wa-fallback').hidden = true;
   announce('انتهت مهلة الحجز المؤقت. ابدأ حجزًا جديدًا.');
   loadAvailability();
 }
@@ -199,9 +236,7 @@ function newBooking() {
   $('booking').scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
 }
 
-async function copyInstapay() {
-  const text = state.data?.config.instapay_address || '';
-  const feedback = $('copy-feedback');
+async function copyText(text, feedbackEl) {
   try {
     if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); }
     else {
@@ -209,16 +244,16 @@ async function copyInstapay() {
       ta.value = text; document.body.appendChild(ta); ta.select();
       document.execCommand('copy'); ta.remove();
     }
-    feedback.textContent = 'تم النسخ ✓';
-  } catch { feedback.textContent = 'تعذر النسخ — انسخ الرقم يدويًا.'; }
-  setTimeout(() => { feedback.textContent = ''; }, 2500);
+    feedbackEl.textContent = 'تم النسخ ✓';
+  } catch { feedbackEl.textContent = 'تعذر النسخ — انسخ يدويًا.'; }
+  setTimeout(() => { feedbackEl.textContent = ''; }, 2500);
 }
 
 function initCardPosters() {
   const hide = (img) => { const wrap = img.closest('.perf-poster-wrap'); (wrap || img).hidden = true; };
   document.querySelectorAll('.perf-poster').forEach((img) => {
     img.addEventListener('error', () => hide(img));
-    if (img.complete && img.naturalWidth === 0) hide(img); // already-failed cached load
+    if (img.complete && img.naturalWidth === 0) hide(img);
   });
 }
 
@@ -234,12 +269,14 @@ function init() {
   $('qty-minus').addEventListener('click', () => setQty(state.qty - 1));
   $('qty-plus').addEventListener('click', () => setQty(state.qty + 1));
   $('book-btn').addEventListener('click', submitBooking);
-  $('copy-instapay').addEventListener('click', copyInstapay);
+  $('copy-instapay').addEventListener('click', () => copyText(state.data?.config.instapay_address || '', $('copy-feedback')));
+  $('copy-message').addEventListener('click', () => copyText($('wa-preview').value, $('msg-feedback')));
   $('new-booking').addEventListener('click', newBooking);
   $('refresh-avail').addEventListener('click', loadAvailability);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !state.reservation) loadAvailability(); });
   initCardPosters();
   initPoster();
+  updateFlow();
   loadAvailability();
 }
 
