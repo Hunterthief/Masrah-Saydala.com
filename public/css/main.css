@@ -5,13 +5,14 @@
    `html.js` + `prefers-reduced-motion: no-preference`.
    No JS, or reduced motion => everything visible and static.
 
-   MOBILE POLICY (max-width:768px):
-   - reveals use opacity+translate only (no blur/brightness filter)
-   - ambient searchlight/grain/curtain/seal are dropped
-   - background-attachment:fixed removed (iOS jank)
-   - evidence cards lose 3D tilt; the seal becomes static (no overlap)
-   - slate labels wrap instead of ellipsizing
-   Desktop behaviour is unchanged.
+   MOBILE PHILOSOPHY: keep the whole atmosphere, swap only the four
+   primitives that genuinely jank/overflow on phones:
+     blur-in-reveal  -> brightness-in-reveal (lamp swing, no smear)
+     animated grain  -> static grain texture (same look, no repaint)
+     fixed bg + blur header -> scroll bg + solid header (iOS-safe)
+     oversized seal / 2s black intro -> viewport-safe seal / 1.4s intro
+   Real bugs fixed on every width: seal-over-text, slate nowrap,
+   negative-inset glow causing sideways scroll.
    No countdown / no expiry figure anywhere (hold is server-side only).
    ============================================================ */
 
@@ -70,6 +71,12 @@
   60% { opacity:1; }
   100% { opacity:1; filter:none; transform:scale(1); }
 }
+/* mobile variant: same "photo developing" read, lighter blur kernel */
+@keyframes posterDevelopLite {
+  0% { opacity:0; filter:brightness(.25) contrast(1.4) saturate(.2) blur(6px); transform:scale(1.04); }
+  60% { opacity:1; }
+  100% { opacity:1; filter:none; transform:scale(1); }
+}
 @keyframes receiptPrint {
   from { opacity:0; clip-path:inset(0 0 100% 0); transform:translateY(-10px); }
   to { opacity:1; clip-path:inset(0 0 0 0); transform:translateY(0); }
@@ -93,14 +100,14 @@ html {
 ::-webkit-scrollbar-thumb { background:linear-gradient(180deg,#8a6f3d,#5f4c2a); border-radius:8px; border:3px solid #1a1613; }
 ::-webkit-scrollbar-thumb:hover { background:var(--gold); }
 
-html::before { /* searchlight */
+html::before { /* searchlight — transform-only, composited, cheap */
   content:""; position:fixed; inset:-35vh -35vw; z-index:-1; pointer-events:none; transform-origin:76% -4%;
   background:conic-gradient(from 196deg at 76% -4%,
     rgba(224,189,122,.17) 0deg, transparent 16deg, rgba(143,36,51,.07) 28deg, transparent 44deg,
     rgba(201,163,92,.09) 62deg, transparent 90deg, transparent 360deg);
   animation:beam 22s ease-in-out infinite;
 }
-html::after { /* dust */
+html::after { /* dust — transform-only drift, composited */
   content:""; position:fixed; inset:-12vh -12vw; z-index:-1; pointer-events:none; opacity:.5;
   background-image:
     radial-gradient(2px 2px at 18% 26%, rgba(224,189,122,.75), transparent 70%),
@@ -113,12 +120,12 @@ html::after { /* dust */
   animation:drift 34s linear infinite alternate;
 }
 body { margin:0; background:transparent; color:var(--paper); font-family:var(--font-body); line-height:1.7; -webkit-font-smoothing:antialiased; }
-body::before { /* grain */
+body::before { /* grain — texture is the look; the jitter is the cost (dropped on mobile) */
   content:""; position:fixed; inset:-6%; z-index:60; pointer-events:none;
   background-image:var(--noise); background-size:120px 120px; opacity:.05; mix-blend-mode:overlay;
   animation:grainJit 5s steps(1,end) infinite;
 }
-body::after { /* vignette */
+body::after { /* vignette — static gradient, free */
   content:""; position:fixed; inset:0; z-index:59; pointer-events:none;
   background:radial-gradient(125% 95% at 50% 8%, transparent 42%, rgba(0,0,0,.42) 78%, rgba(0,0,0,.62));
 }
@@ -133,12 +140,13 @@ main::before { /* curtain */
   content:""; position:fixed; inset:0; z-index:80; pointer-events:none; opacity:0;
   background:linear-gradient(115deg, #0b0908 0 46%, rgba(11,9,8,.92) 54%, transparent 62%);
 }
-main::after { /* opening seal */
+main::after { /* opening seal — viewport-safe via clamp + max-inline-size (mobile tightened below) */
   content:"TOP SECRET"; position:fixed; top:45%; left:50%; z-index:81; pointer-events:none;
   opacity:0; transform:translate(-50%,-50%);
   font-family:var(--font-mono); font-weight:700; font-size:clamp(1.1rem,5vw,2rem);
   letter-spacing:.4em; color:var(--burgundy); text-align:center;
   border:5px double var(--burgundy); border-radius:10px; padding:.6rem 1.4rem; background:rgba(20,17,15,.35);
+  inline-size:max-content; max-inline-size:92vw;
 }
 @media (prefers-reduced-motion: no-preference) {
   main::before { opacity:1; animation:declassify .95s cubic-bezier(.7,0,.2,1) .05s both, curtainOut .95s linear .05s both; }
@@ -306,51 +314,48 @@ a { color:var(--gold-bright); }
   .hero.scene .scene-content { opacity:0; animation:riseSeq .8s var(--ease) .95s both; }
   .poster { animation:posterDevelop 1.5s ease 1.15s both, lampFlicker 9s linear 3s infinite; }
 
-  /* ===== MOBILE: same engine, no filters, no curtain/seal, no 3D ===== */
+  /* ===== MOBILE: FULL atmosphere, only the unsafe primitives swapped ===== */
   @media (max-width:768px) {
-    /* reveal = opacity + short slide only (blur/brightness was the smear) */
+    /* lamp-swing reveal: brightness only (NO blur kernel = no smear) */
     html.js .scene:not(.scene--load):not(.scene--instant) {
-      opacity:0; filter:none; transform:translateY(18px);
-      transition:opacity .45s var(--ease), transform .5s var(--ease);
+      opacity:0; filter:brightness(.55); transform:translateY(22px);
+      transition:opacity .5s var(--ease), transform .6s var(--ease), filter .5s var(--ease);
     }
-    html.js .scene.is-in:not(.scene--load):not(.scene--instant) { opacity:1; transform:none; }
+    html.js .scene.is-in:not(.scene--load):not(.scene--instant) { opacity:1; filter:none; transform:none; }
 
-    /* no full-screen black wipe, no oversized spinning seal on a phone */
-    main::before, main::after { display:none !important; animation:none !important; opacity:0 !important; }
+    /* curtain + seal KEPT, but compressed so there's no ~2s black stall */
+    main::before { animation:declassify .6s cubic-bezier(.7,0,.2,1) .04s both, curtainOut .6s linear .04s both; }
+    main::after { animation:sealSpin 1.15s cubic-bezier(.3,.9,.3,1) .06s both; }
 
-    /* hero comes in fast and plainly */
-    .hero.scene .scene-content { animation:riseSeq .5s var(--ease) .12s both; }
-    .scene--load .scene-slate span { animation:typeIn .5s steps(20,end) .18s both; }
-    .poster { animation:fadeSimple .5s ease .18s both; } /* drop develop-blur + flicker */
+    /* hero enters sooner, right behind the seal */
+    .hero.scene .scene-content { animation:riseSeq .55s var(--ease) .5s both; }
+    .scene--load .scene-slate span { animation:typeIn .6s steps(22,end) .55s both; }
+    /* poster still DEVELOPS (signature look) — lighter kernel, no infinite flicker */
+    .poster { animation:posterDevelopLite 1.1s ease .55s both; }
 
-    /* scene 02: flat lift, no perspective hinge */
-    html.js .scene[data-scene="02"] .paper { transform:translateY(18px); transition:opacity .45s var(--ease), transform .5s var(--ease); }
-    html.js .scene[data-scene="02"].is-in .paper { transform:none; }
+    /* scene 02 hinge kept, shallower angle so the 3D reads on a small surface */
+    html.js .scene[data-scene="02"] .paper { transform:perspective(900px) rotateX(-14deg) translateY(20px); transition:opacity .5s var(--ease), transform .65s var(--ease); }
+    html.js .scene[data-scene="02"].is-in .paper { transform:perspective(900px) rotateX(0) translateY(0); }
 
-    /* scene 03: cards slide up, no tilt/scale/perspective */
-    .perf-grid { perspective:none; }
+    /* scene 03: the DEAL survives — tilt + stagger, just no blur */
     html.js .scene[data-scene="03"] .perf-card {
-      transform:translateY(26px);
-      transition:opacity .45s var(--ease), transform .55s var(--ease), box-shadow .2s, border-color .2s;
-      transition-delay:calc(var(--i) * 90ms + 80ms);
+      transform:translateY(34px) rotate(var(--tilt)) scale(.96);
+      transition:opacity .5s var(--ease), transform .6s cubic-bezier(.2,1.05,.3,1), box-shadow .2s, border-color .2s;
+      transition-delay:calc(var(--i) * 110ms + 90ms);
     }
-    html.js .scene[data-scene="03"].is-in .perf-card { transform:none; }
-    html.js .scene[data-scene="03"] #booking-fieldset .field { transform:translateY(12px); }
-    html.js .scene[data-scene="03"].is-in #booking-fieldset .field { transform:none; }
-    html.js .scene[data-scene="03"] .summary { transform:translateY(12px); }
-    html.js .scene[data-scene="03"].is-in .summary { transform:none; }
+    html.js .scene[data-scene="03"] #booking-fieldset .field { transform:translateX(-16px); }
+    html.js .scene[data-scene="03"] .summary { transform:translateY(14px) scale(.99); }
 
-    /* scene 05: drop straight, no swing rotation */
-    html.js .scene[data-scene="05"] .steps li { transform:translateY(14px); transition:opacity .4s var(--ease), transform .5s var(--ease); }
-    html.js .scene[data-scene="05"].is-in .steps li { transform:none; }
+    /* scene 05 swing kept, tighter rotation */
+    html.js .scene[data-scene="05"] .steps li { transform:translateY(-14px) rotate(-6deg); transition:opacity .4s var(--ease), transform .55s cubic-bezier(.3,1.4,.4,1); }
 
-    /* scene 06: fade up, no blur decode */
-    html.js .scene[data-scene="06"] .paper { filter:none; transform:translateY(14px); transition:opacity .5s var(--ease), transform .55s var(--ease); }
-    html.js .scene[data-scene="06"].is-in .paper { transform:none; }
+    /* scene 06: brightness lift (lamp) without the blur decode */
+    html.js .scene[data-scene="06"] .paper { filter:brightness(.4); transform:translateY(16px); transition:filter .6s var(--ease), opacity .5s, transform .6s var(--ease); }
+    html.js .scene[data-scene="06"].is-in .paper { filter:none; transform:none; }
 
-    /* end: plain fade */
-    html.js .scene[data-scene="end"] .scene-content { filter:none; opacity:0; transition:opacity .6s var(--ease); }
-    html.js .scene[data-scene="end"].is-in .scene-content { opacity:1; }
+    /* end: lights-out via brightness, not blur */
+    html.js .scene[data-scene="end"] .scene-content { filter:brightness(.45); opacity:0; transition:opacity .7s var(--ease), filter .8s var(--ease); }
+    html.js .scene[data-scene="end"].is-in .scene-content { opacity:1; filter:none; }
   }
 }
 
@@ -394,7 +399,7 @@ a { color:var(--gold-bright); }
 .paper h2, .paper h3 { color:var(--burgundy-deep); border-color:var(--burgundy); }
 .case-file { margin:1.5rem 0 2.5rem; position:relative; }
 .folder-tab { position:relative; z-index:1; display:inline-block; background:#d9c69a; color:var(--paper-ink); font-family:var(--font-mono); font-size:.8rem; padding:.35rem 1.2rem; border-radius:8px 8px 0 0; border:1px solid rgba(0,0,0,.15); border-bottom:none; margin-inline-start:1rem; box-shadow:0 -4px 14px -8px rgba(0,0,0,.6); }
-.case-file .paper { border-start-start-radius:0; padding-block-end:5.5rem; } /* reserve room for the seal (desktop) */
+.case-file .paper { border-start-start-radius:0; padding-block-end:5.5rem; } /* reserve the seal zone — text can never reach it */
 .paper-body { position:relative; z-index:2; }
 .case-file::before, .case-file::after {
   content:""; position:absolute; inset-inline:1.4rem; block-size:26px; z-index:0; pointer-events:none;
@@ -410,6 +415,7 @@ a { color:var(--gold-bright); }
   padding:.25rem .8rem; font-family:var(--font-mono); font-size:.78rem; text-align:center; line-height:1.4;
   opacity:.8; pointer-events:none; mix-blend-mode:multiply;
   background:rgba(240,228,201,.55); box-shadow:0 2px 10px rgba(0,0,0,.12);
+  max-inline-size:62%;
 }
 .stamp::before { content:""; position:absolute; inset-inline-start:-9px; top:-9px; width:18px; height:18px; background:var(--pin) center / contain no-repeat; }
 
@@ -526,38 +532,40 @@ code { font-family:var(--font-mono); background:rgba(0,0,0,.08); padding:.15rem 
 @media (min-width:880px) { .hero.scene .scene-content { grid-template-columns:1.1fr .9fr; } .poster { max-width:26rem; justify-self:center; } }
 
 /* ============================================================
-   MOBILE HARDENING (layout, not motion — motion handled above)
+   MOBILE LAYOUT + TEXTURE (not motion — motion handled above).
+   Atmosphere KEPT; only the iOS-unsafe / overflowing bits swapped.
    ============================================================ */
 @media (max-width:768px) {
-  html { background-attachment:scroll; scroll-padding-top:76px; }   /* fixed attachment janks on iOS */
-  html::before { display:none; }                                     /* drop the searchlight cone */
-  html::after { opacity:.22; animation:none; }                       /* faint static dust, no drift */
-  body::before { display:none; }                                     /* drop animated grain + overlay blend */
-  body::after { background:radial-gradient(140% 80% at 50% 0%, transparent 55%, rgba(0,0,0,.35)); } /* lighter vignette */
+  html { background-attachment:scroll; scroll-padding-top:76px; }   /* fixed attachment janks/smears on iOS */
+  html::before { animation-duration:34s; opacity:.8; }              /* searchlight KEPT, slowed */
+  html::after { opacity:.4; }                                       /* dust KEPT */
+  body::before { animation:none; opacity:.04; }                     /* grain KEPT as static texture, jitter dropped */
+  body::after { background:radial-gradient(135% 88% at 50% 6%, transparent 46%, rgba(0,0,0,.34) 82%, rgba(0,0,0,.5)); } /* vignette KEPT, lightened */
 
-  .site-head { backdrop-filter:none; background:rgba(20,17,15,.97); gap:.5rem; padding:.6rem .75rem; }
+  .site-head { backdrop-filter:none; background:rgba(20,17,15,.97); gap:.5rem; padding:.6rem .75rem; } /* solid bar = no grey smear */
   .brand { font-size:.82rem; letter-spacing:0; }
   .head-pill { font-size:.66rem; padding:.15rem .5rem; }
-  .head-stamp { display:none; }                                      /* header is tight on a phone */
+  .head-stamp { display:none; }                                     /* header is tight; the seal still appears in the intro + on the file */
 
-  h1 { font-size:clamp(1.9rem,8vw,2.6rem); }
-  h1::after { display:none; }                                        /* dangling caret block looks odd when wrapped */
+  h1 { font-size:clamp(1.9rem,8vw,2.6rem); animation:typeIn 1.15s steps(24,end) 1.05s both; text-shadow:0 2px 18px rgba(201,163,92,.22); } /* drop animated inkGlow (text-shadow repaint cost), keep static glow */
   h2 { font-size:1.4rem; }
 
-  /* slate labels wrap and read; drop the flanking hairlines that look broken when wrapped */
+  /* viewport-safe intro seal: tighter tracking so "TOP SECRET" fits 320px */
+  main::after { font-size:clamp(.82rem,4.2vw,1.25rem); letter-spacing:.12em; border-width:3px; padding:.4rem .8rem; max-inline-size:90vw; }
+
+  /* slate labels wrap and stay readable; hairlines hidden when wrapped */
   .scene-slate { font-size:.62rem; letter-spacing:.12em; gap:.5rem; margin-bottom:.9rem; }
   .scene-slate span { white-space:normal; text-overflow:clip; }
   .scene-slate::before, .scene-slate::after { display:none; }
 
-  /* the seal sits statically under the text — never overlaps, regardless of re-wrap */
-  .case-file .paper { padding-block-end:1.5rem; }
-  .stamp { position:static; display:inline-block; margin-top:1rem; inset:auto; --r:0deg; transform:none; mix-blend-mode:normal; opacity:.85; }
-  .stamp::before { display:none; }
+  /* seal stays ABSOLUTE (looks like a real stamp) but the zone is reserved so it never covers text */
+  .case-file .paper { padding-block-end:4.5rem; }
+  .stamp { bottom:.9rem; inset-inline-end:.9rem; font-size:.72rem; max-inline-size:58%; }
   .case-file::before, .case-file::after { inset-inline:.8rem; }
 
-  .booking::before { inset-inline:-1rem; block-size:240px; opacity:.12; }  /* glow can't bleed off-screen */
+  .booking::before { inset-inline:-1rem; block-size:240px; opacity:.12; }  /* glow can't bleed off-screen (main also clips x) */
 
-  /* comfortable tap targets + no cramped rows */
+  /* comfortable tap targets */
   .btn { padding:.8rem 1.2rem; }
   .btn-big { font-size:1.05rem; padding:1rem; }
   .qty button { width:2.9rem; height:2.9rem; }
@@ -590,21 +598,23 @@ code { font-family:var(--font-mono); background:rgba(0,0,0,.08); padding:.15rem 
   .btn-big { font-size:1rem; }
   .pay-pending, .hazard { font-size:.92rem; padding:.8rem .95rem; }
   .site-foot::after { font-size:.58rem; letter-spacing:.14em; }
+  .stamp { max-inline-size:64%; font-size:.68rem; }
 }
 
 /* hero intro delay compression (these animate outside the motion-safe block) */
 @media (max-width:768px) and (prefers-reduced-motion: no-preference) {
-  .hero-copy > *:nth-child(1) { animation-delay:.18s; }
-  .hero-copy > *:nth-child(2) { animation-delay:.24s; }
-  .hero-copy > *:nth-child(3) { animation-delay:.32s; }
-  .hero-copy > *:nth-child(4) { animation-delay:.4s; }
-  .hero-copy > *:nth-child(5) { animation-delay:.48s; }
-  .kicker::before { animation-delay:.5s; }
-  .tagline::before { animation-delay:.6s; }
-  .hero-meta li:nth-child(1) { animation-delay:.62s; }
-  .hero-meta li:nth-child(2) { animation-delay:.7s; }
-  .hero-meta li:nth-child(3) { animation-delay:.78s; }
-  .pf-stamp { animation-delay:.9s; }
+  .hero-copy > *:nth-child(1) { animation-delay:.6s; }
+  .hero-copy > *:nth-child(2) { animation-delay:.66s; }
+  .hero-copy > *:nth-child(3) { animation-delay:.74s; }
+  .hero-copy > *:nth-child(4) { animation-delay:.82s; }
+  .hero-copy > *:nth-child(5) { animation-delay:.9s; }
+  .kicker::before { animation-delay:.95s; }
+  .tagline::before { animation-delay:1.05s; }
+  .hero-meta li:nth-child(1) { animation-delay:1.05s; }
+  .hero-meta li:nth-child(2) { animation-delay:1.13s; }
+  .hero-meta li:nth-child(3) { animation-delay:1.21s; }
+  .pf-stamp { animation-delay:1.3s; }
+  h1 { animation-delay:.62s; }
 }
 
 /* ---------- accessibility: static + fully visible ---------- */
