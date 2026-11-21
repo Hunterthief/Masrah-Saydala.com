@@ -8,8 +8,8 @@
   // BOOKING NEVER OPENS until INSTAPAY_ADDRESS and WHATSAPP_NUMBER are filled.
   "vars": {
     "BOOKING_ENABLED": "true",
-    "INSTAPAY_ADDRESS": "",            // TODO: e.g. "01XXXXXXXXX" or "name@instapay"
-    "WHATSAPP_NUMBER": "",             // TODO: digits only, e.g. "201XXXXXXXXX" (no +, no spaces)
+    "INSTAPAY_ADDRESS": "01007227992",            // TODO: e.g. "01XXXXXXXXX" or "name@instapay"
+    "WHATSAPP_NUMBER": "201007227992",             // TODO: digits only, e.g. "201XXXXXXXXX" (no +, no spaces)
     "RESERVATION_TTL_MINUTES": "15",   // temporary hold duration
     "MAX_TICKETS_PER_BOOKING": "10"    // per-booking quantity limit
   },
