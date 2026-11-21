@@ -239,7 +239,7 @@ async function reserveAndOpenWhatsApp() {
   const hasWhatsAppNumber = !!state.data?.config.whatsapp_number;
 
   // Open a blank tab synchronously during the click gesture to avoid popup blocking.
-  // If the reservation succeeds, we navigate it to WhatsApp. If it fails, we close it.
+  // If the reservation succeeds we navigate it to WhatsApp; if it fails we close it.
   let waWindow = null;
   if (hasWhatsAppNumber) {
     try {
@@ -269,6 +269,10 @@ async function reserveAndOpenWhatsApp() {
     const data = await res.json().catch(() => null);
 
     if (res.ok && data?.ok) {
+      // FIX: retire the key once this attempt succeeded. Otherwise a later
+      // booking of the same size would replay this (possibly expired) row.
+      state.keys.delete(sig);
+
       state.reservation = data.reservation;
       renderPayment();
 
@@ -307,7 +311,10 @@ async function reserveAndOpenWhatsApp() {
 
       showError(data?.error?.message || 'حدث خطأ غير متوقع. حاول مرة أخرى.');
       const code = data?.error?.code;
-      if (['INSUFFICIENT_CAPACITY', 'PERFORMANCE_DISABLED', 'BOOKING_CLOSED'].includes(code)) {
+      // FIX: a hard rejection means this attempt is over — drop the key so the
+      // next try isn't pinned to a dead record. Network errors keep it (safe retry).
+      if (['INSUFFICIENT_CAPACITY', 'PERFORMANCE_DISABLED', 'BOOKING_CLOSED', 'IDEMPOTENCY_CONFLICT'].includes(code)) {
+        state.keys.delete(sig);
         await loadAvailability();
       }
     }
