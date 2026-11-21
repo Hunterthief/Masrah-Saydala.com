@@ -7,14 +7,13 @@
   <meta name="description" content="احجز تذاكر عرض «مكتب حل المشاكل التافهة» — فريق مسرح صيدلة إسكندرية. الخميس 3 ديسمبر 2026، كلية الصيدلة، المبنى الجديد، الدور الثالث. الدفع عبر إنستاباي والتأكيد عبر واتساب.">
   <meta name="theme-color" content="#161311">
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
-  <link rel="stylesheet" href="css/main.css?v=5">
-  <script type="module" src="js/app.js?v=5"></script>
+  <link rel="stylesheet" href="css/main.css?v=6">
+  <script type="module" src="js/app.js?v=6"></script>
 </head>
 <body>
 <noscript><div class="banner banner-warn noscript">يتطلب الحجز تفعيل JavaScript في المتصفح.</div></noscript>
 <a class="skip-link" href="#booking">تخطَّ إلى الحجز</a>
 
-<!-- case index spine: the investigation board -->
 <nav class="spine" aria-label="فهرس المشاهد">
   <span class="spine-thread" aria-hidden="true"></span>
   <a class="spine-tab" data-go="01" href="#scene-01"><i></i><b>01</b><span>الملصق</span></a>
@@ -104,9 +103,9 @@
 
       <ol id="flow" class="flow" aria-label="مراحل الحجز">
         <li>اختر العرض</li>
-        <li>احجز مؤقتًا</li>
-        <li>حوّل المبلغ</li>
-        <li>أرسل الصورة</li>
+        <li>تابع للدفع</li>
+        <li>سجّل وأرسل</li>
+        <li>انتظر التأكيد</li>
       </ol>
 
       <p id="load-status" class="load-status">جارٍ التحقق من توفر التذاكر…</p>
@@ -164,12 +163,9 @@
           <div class="total"><dt>الإجمالي</dt><dd id="sum-total">—</dd></div>
         </dl>
 
-        <!-- STEP 2: creates the temporary hold in the database -->
-        <button type="button" id="book-btn" class="btn btn-gold btn-big">احجز مؤقتًا وأكمل الدفع</button>
-        <p class="hint">
-          الضغط على هذا الزر يُنشئ حجزًا مؤقتًا ويحجز مقاعدك في النظام لمدة <b class="ttl-echo">15</b> دقيقة،
-          ثم يظهر رقم الحجز وأرقام التذاكر والمبلغ المطلوب. إذا لم تتم الدفع خلال المدة تعود المقاعد للمتاح تلقائيًا.
-        </p>
+        <!-- STEP 2: shows the payment panel. Writes NOTHING to the database. -->
+        <button type="button" id="book-btn" class="btn btn-gold btn-big">متابعة إلى الدفع</button>
+        <p class="hint">هذه الخطوة تعرض لك المبلغ وتعليمات التحويل فقط — <b>لا تُسجَّل أي تذكرة في النظام</b>. التسجيل يحدث فقط عند ضغط زر واتساب في الخطوة التالية.</p>
         <p id="book-error" class="error" role="alert" hidden></p>
       </fieldset>
     </div>
@@ -179,40 +175,65 @@
   <section id="payment" class="payment paper scene scene--instant" data-scene="04" hidden aria-labelledby="pay-title">
     <div class="scene-slate" aria-hidden="true" dir="ltr">
       <b>SCENE 04</b>
-      <span>INSTAPAY TRANSFER — MANUAL VERIFICATION ONLY</span>
+      <span>INSTAPAY TRANSFER — NOTHING IS RECORDED UNTIL YOU PRESS SEND</span>
     </div>
     <div class="scene-content">
       <h2 id="pay-title">أكمل الدفع عبر إنستاباي</h2>
-      <p class="pay-status">حجزك المؤقت جاهز. <b>لم يتم التحقق من الدفع بعد</b> — التأكيد يتم يدويًا عبر واتساب.</p>
-      <div id="pay-test" class="banner banner-warn" hidden>وضع الاختبار: هذا حجز تجريبي — <b>لا تحوّل أي مبلغ</b>.</div>
-      <dl class="pay-details">
-        <div><dt>رقم الحجز</dt><dd><code id="pay-ref" dir="ltr"></code></dd></div>
-        <div><dt>المبلغ المطلوب</dt><dd><b id="pay-amount" class="amount"></b> ج.م</dd></div>
-        <div id="instapay-block"><dt>حوّل إلى (إنستاباي)</dt>
-          <dd class="instapay-row">
-            <code id="pay-instapay" dir="ltr"></code>
-            <button type="button" id="copy-instapay" class="btn btn-ghost">نسخ</button>
-            <span id="copy-feedback" class="copy-feedback" aria-live="polite"></span>
-          </dd>
-        </div>
-        <div><dt>ينتهي الحجز عند</dt><dd><span id="pay-expiry"></span> — المتبقي <b id="pay-countdown" class="countdown" dir="ltr"></b></dd></div>
-      </dl>
-      <h3>أرقام التذاكر المبدئية</h3>
-      <ul id="pay-tickets" class="tickets"></ul>
-      <p class="hint">أرقام حجز مبدئية تصبح نهائية بعد مراجعة الدفع يدويًا، ثم يرسل المنظمون التذاكر النهائية على واتساب.</p>
-      <div id="pay-expired" class="banner banner-warn" hidden>انتهت مهلة الحجز المؤقت وأُعيدت المقاعد للمتاح. ابدأ حجزًا جديدًا.</div>
 
-      <!-- STEP 4: plain anchor = real user gesture, can never be popup-blocked -->
-      <a id="wa-link" class="btn btn-wa btn-big" target="_blank" rel="noopener">أرسل صورة دفع إنستاباي على واتساب</a>
+      <!-- STATE A: pre-commit. No reference, no ticket numbers — they don't exist yet. -->
+      <div id="pay-pending" class="pay-pending">
+        <b>لم يُسجَّل أي شيء في النظام بعد.</b> راجع التفاصيل والمبلغ أدناه، حوّل عبر إنستاباي، ثم اضغط زر واتساب —
+        عندها فقط يُسجَّل الحجز وتظهر أرقام التذاكر في الرسالة.
+      </div>
+
+      <!-- STATE B: post-commit. Revealed only after the WhatsApp press succeeds. -->
+      <div id="pay-committed" hidden>
+        <p class="pay-status">تم تسجيل حجزك. <b>لم يتم التحقق من الدفع بعد</b> — أرفق صورة التحويل وأرسلها على واتساب.</p>
+        <dl class="pay-details">
+          <div><dt>رقم الحجز</dt><dd><code id="pay-ref" dir="ltr"></code></dd></div>
+        </dl>
+        <h3>أرقام التذاكر</h3>
+        <ul id="pay-tickets" class="tickets"></ul>
+        <p class="hint">أرقام حجز مبدئية تصبح نهائية بعد مراجعة الدفع يدويًا، ثم يرسل المنظمون التذاكر النهائية على واتساب.</p>
+      </div>
+
+      <div id="pay-test" class="banner banner-warn" hidden>وضع الاختبار: هذا حجز تجريبي — <b>لا تحوّل أي مبلغ</b>.</div>
+
+      <dl class="pay-echo">
+        <div><dt>العرض</dt><dd id="pay-perf">—</dd></div>
+        <div><dt>عدد التذاكر</dt><dd id="pay-qty">—</dd></div>
+        <div><dt>الاسم</dt><dd id="pay-name">—</dd></div>
+        <div><dt>رقم الموبايل</dt><dd id="pay-phone" dir="ltr">—</dd></div>
+        <div class="total"><dt>المبلغ المطلوب</dt><dd><b id="pay-amount" class="amount"></b> ج.م</dd></div>
+      </dl>
+
+      <div id="instapay-block">
+        <h3>حوّل إلى (إنستاباي)</h3>
+        <div class="instapay-row">
+          <code id="pay-instapay" dir="ltr"></code>
+          <button type="button" id="copy-instapay" class="btn btn-ghost">نسخ</button>
+          <span id="copy-feedback" class="copy-feedback" aria-live="polite"></span>
+        </div>
+      </div>
+
+      <p class="hint">الحجز المسجَّل يبقى مؤقتًا لمدة <b class="ttl-echo">15</b> دقيقة؛ إن لم تصل صورة الدفع خلالها تعود المقاعد للمتاح تلقائيًا دون أي إجراء منك.</p>
+
+      <!-- STEP 3: the ONLY database write in the whole flow -->
+      <button type="button" id="wa-send" class="btn btn-wa btn-big">سجّل الحجز وأرسل صورة الدفع على واتساب</button>
+      <!-- revealed after commit; a native anchor, so it can never be popup-blocked -->
+      <a id="wa-open" class="btn btn-wa btn-big" target="_blank" rel="noopener" hidden>افتح واتساب وأرفق صورة الدفع</a>
+
       <div id="wa-fallback" hidden>
         <label class="label" for="wa-preview">نص رسالة واتساب الجاهزة</label>
         <textarea id="wa-preview" rows="9" readonly dir="rtl"></textarea>
         <button type="button" id="copy-message" class="btn btn-ghost">نسخ الرسالة</button>
         <span id="msg-feedback" class="copy-feedback" aria-live="polite"></span>
-        <p class="hint">لم يٌضبط رقم واتساب المنظمين بعد، لذلك زر الإرسال معطّل. انسخ الرسالة لمراجعتها؛ سيُفعَّل الزر تلقائيًا عند إضافة الرقم.</p>
+        <p class="hint">لم يٌضبط رقم واتساب المنظمين بعد، لذلك الإرسال معطّل. انسخ الرسالة لمراجعتها؛ سيُفعَّل الزر تلقائيًا عند إضافة الرقم.</p>
       </div>
+
       <p class="hint">يفتح واتساب برسالة جاهزة — <b>أرفق صورة دفع إنستاباي يدويًا قبل الإرسال</b>؛ لا يمكن إرفاقها تلقائيًا.</p>
-      <button type="button" id="new-booking" class="btn btn-ghost">بدء حجز جديد</button>
+      <button type="button" id="new-booking" class="btn btn-ghost">تعديل الحجز</button>
+      <p id="pay-error" class="error" role="alert" hidden></p>
     </div>
   </section>
 
@@ -226,10 +247,10 @@
       <h2 id="how-title">خطوات الحجز</h2>
       <ol class="steps">
         <li>اختر العرض وعدد التذاكر، وأدخل رقم الموبايل.</li>
-        <li>اضغط «احجز مؤقتًا» — تُحفظ مقاعدك في النظام لمدة <span class="ttl-echo">15</span> دقيقة ويظهر رقم الحجز وأرقام التذاكر.</li>
+        <li>اضغط «متابعة إلى الدفع» — تظهر لك التعليمات والمبلغ، ولا تُسجَّل أي تذكرة.</li>
         <li>حوّل المبلغ المطلوب عبر إنستاباي.</li>
-        <li>أرفق صورة دفع إنستاباي يدويًا في محادثة واتساب وأرسلها.</li>
-        <li>بعد المراجعة اليدوية تصلك التذاكر النهائية على واتساب.</li>
+        <li>اضغط زر واتساب — هنا فقط يُسجَّل الحجز ويظهر رقم الحجز وأرقام التذاكر في الرسالة.</li>
+        <li>أرفق صورة الدفع يدويًا وأرسلها؛ بعد المراجعة تصلك التذاكر النهائية.</li>
       </ol>
     </div>
   </section>
