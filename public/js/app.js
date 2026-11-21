@@ -214,6 +214,14 @@ async function copyInstapay() {
   setTimeout(() => { feedback.textContent = ''; }, 2500);
 }
 
+function initCardPosters() {
+  const hide = (img) => { const wrap = img.closest('.perf-poster-wrap'); (wrap || img).hidden = true; };
+  document.querySelectorAll('.perf-poster').forEach((img) => {
+    img.addEventListener('error', () => hide(img));
+    if (img.complete && img.naturalWidth === 0) hide(img); // already-failed cached load
+  });
+}
+
 function initPoster() {
   const img = $('poster-img');
   img.addEventListener('load', () => { img.hidden = false; $('poster-fallback').hidden = true; });
@@ -230,6 +238,7 @@ function init() {
   $('new-booking').addEventListener('click', newBooking);
   $('refresh-avail').addEventListener('click', loadAvailability);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !state.reservation) loadAvailability(); });
+  initCardPosters();
   initPoster();
   loadAvailability();
 }
