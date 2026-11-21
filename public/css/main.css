@@ -656,3 +656,8 @@ code { font-family:var(--font-mono); background:rgba(0,0,0,.08); padding:.2rem .
   html.js .case-file::before { transform:rotate(-1.1deg) !important; }
   html.js .case-file::after { transform:rotate(.9deg) !important; opacity:.75 !important; }
 }
+/* ---------- auto-progression cues ---------- */
+#book-btn.ready { box-shadow:0 0 0 3px rgba(201,163,92,.35), 0 10px 26px rgba(201,163,92,.35); animation:live 1.8s ease-out infinite; }
+/* keep auto-scrolled targets clear of the sticky header */
+#booking-fieldset, #payment, #pay-committed, #booking { scroll-margin-block-start:96px; }
+@media (prefers-reduced-motion:reduce) { #book-btn.ready { animation:none !important; } }
