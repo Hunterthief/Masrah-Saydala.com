@@ -139,7 +139,10 @@ async function submitBooking() {
   try {
     const res = await fetch('/api/reservations', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ performance_id: pid, quantity: qty, idempotency_key: state.key }),
+      body: JSON.stringify({
+        performance_id: pid, quantity: qty, idempotency_key: state.key,
+        customer_name: state.customerName,
+      }),
     });
     const data = await res.json().catch(() => null);
     if (res.ok && data?.ok) {
