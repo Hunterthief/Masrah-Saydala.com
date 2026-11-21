@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path';
 import { SQL, cleanName } from '../lib/core.js';
 import { onRequestGet, onRequest as availFallback } from '../functions/api/availability.js';
 import { onRequestPost, onRequest as resFallback } from '../functions/api/reservations.js';
-import { formatEGP, formatTime, formatDateAr } from '../public/js/format.js';
+import { formatEGP, formatTime, formatDateAr, normalizePhone } from '../public/js/format.js';
 import { buildWhatsAppMessage, buildWhatsAppUrl } from '../public/js/whatsapp.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -76,7 +76,9 @@ const post = async (env, body) => {
   });
   return { status: res.status, data: await res.json() };
 };
-const booking = (pid, qty, key = crypto.randomUUID()) => ({ performance_id: pid, quantity: qty, idempotency_key: key });
+const booking = (pid, qty, key = crypto.randomUUID()) => ({
+  performance_id: pid, quantity: qty, idempotency_key: key, customer_phone: '01012345678',
+});
 const count = (db, table) => db.db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
 
 test('seed: both performances, correct times, booking closed until configured', async () => {
@@ -224,7 +226,7 @@ test('SQL-level race: only one conditional batch wins', async () => {
   const now = Math.floor(Date.now() / 1000);
   const mk = (ref, key) => [
     db.prepare(SQL.expireStale).bind('A', now),
-    db.prepare(SQL.insertReservation).bind(ref, key, 1, 1, now, now + 900, null, 'A', now, 1),
+    db.prepare(SQL.insertReservation).bind(ref, key, 1, 1, now, now + 900, null, '201012345678', 'A', now, 1),
     db.prepare(SQL.insertTickets).bind(1, now, ref),
     db.prepare(SQL.bumpSequence).bind(1, 'A', ref),
   ];
@@ -286,7 +288,7 @@ test('batch rollback: duplicate key leaves no orphan rows', async () => {
   const ref = 'MSD-DUPKEY';
   await assert.rejects(db.batch([
     db.prepare(SQL.expireStale).bind('A', now),
-    db.prepare(SQL.insertReservation).bind(ref, key, 1, 1, now, now + 900, null, 'A', now, 1),
+    db.prepare(SQL.insertReservation).bind(ref, key, 1, 1, now, now + 900, null, '201012345678', 'A', now, 1),
     db.prepare(SQL.insertTickets).bind(1, now, ref),
     db.prepare(SQL.bumpSequence).bind(1, 'A', ref),
   ]), /idempotency_key/);
@@ -315,14 +317,16 @@ test('method guards', async () => {
 test('public availability exposes no private data', async () => {
   const { db, env } = makeEnv(); configure(db);
   const key = crypto.randomUUID();
-  const { data } = await post(env, { ...booking('A', 2, key), customer_name: 'حسن وائل' });
+  const { data } = await post(env, { ...booking('A', 2, key), customer_name: 'حسن وائل', customer_phone: '01099887766' });
   const raw = JSON.stringify(await avail(env));
   assert.ok(!raw.includes(key));
   assert.ok(!raw.includes(data.reservation.reference));
   assert.ok(!raw.includes('MSD-2026-A-0001'));
   assert.ok(!raw.includes('حسن'));
+  assert.ok(!raw.includes('201099887766'));
   const cols = db.db.prepare('PRAGMA table_info(reservations)').all().map(c => c.name);
-  assert.deepEqual(cols, ['id', 'idempotency_key', 'performance_id', 'quantity', 'total_piasters', 'status', 'created_at', 'expires_at', 'customer_name']);
+  assert.deepEqual(cols, ['id', 'idempotency_key', 'performance_id', 'quantity', 'total_piasters',
+    'status', 'created_at', 'expires_at', 'customer_name', 'customer_phone']);
 });
 
 test('money and time formatting', () => {
@@ -343,11 +347,12 @@ test('WhatsApp message has all details, no date line; URL round-trips', async ()
   const { data } = await post(env, booking('A', 3));
   const a = await avail(env);
   const msg = buildWhatsAppMessage({
-    event: a.event, performance: a.performances[0],
-    reservation: data.reservation, customerName: 'هانتر',
+    event: a.event, performance: a.performances[0], reservation: data.reservation,
+    customerName: 'هانتر', customerPhone: '201012345678',
   });
-  for (const n of ['مكتب حل المشاكل التافهة', 'هانتر', 'A', 'العرض الأول', '4:30 م', '5:00 م', '3',
-    data.reservation.reference, 'MSD-2026-A-0001', 'MSD-2026-A-0002', 'MSD-2026-A-0003', '150', 'راجعوا']) {
+  for (const n of ['مكتب حل المشاكل التافهة', 'هانتر', 'رقم الموبايل: 201012345678', 'A', 'العرض الأول',
+    '4:30 م', '5:00 م', '3', data.reservation.reference,
+    'MSD-2026-A-0001', 'MSD-2026-A-0002', 'MSD-2026-A-0003', '150', 'راجعوا']) {
     assert.ok(msg.includes(n), `missing ${n}`);
   }
   assert.ok(!msg.includes('التاريخ:'), 'date line must be absent');
@@ -355,10 +360,12 @@ test('WhatsApp message has all details, no date line; URL round-trips', async ()
   const url = buildWhatsAppUrl(a.config.whatsapp_number, msg);
   assert.ok(url.startsWith('https://wa.me/201000000000?text='));
   assert.equal(decodeURIComponent(url.split('?text=')[1]), msg);
-  const noName = buildWhatsAppMessage({
-    event: a.event, performance: a.performances[0], reservation: data.reservation, customerName: '',
+  const bare = buildWhatsAppMessage({
+    event: a.event, performance: a.performances[0], reservation: data.reservation,
+    customerName: '', customerPhone: '',
   });
-  assert.ok(!noName.includes('الاسم:'));
+  assert.ok(!bare.includes('الاسم:'));
+  assert.ok(!bare.includes('رقم الموبايل:'));
 });
 
 test('booker name stored on reservation and every ticket, never exposed publicly', async () => {
@@ -397,6 +404,45 @@ test('cleanName sanitizes input', () => {
   assert.equal(cleanName('ا'.repeat(100)).length, 60);
 });
 
+test('normalizePhone handles Arabic digits, separators and Egyptian canonicalization', () => {
+  assert.equal(normalizePhone('01012345678'), '201012345678');
+  assert.equal(normalizePhone('010 1234 5678'), '201012345678');
+  assert.equal(normalizePhone('+20 101-234-5678'), '201012345678');
+  assert.equal(normalizePhone('00201012345678'), '201012345678');
+  assert.equal(normalizePhone('٠١٠١٢٣٤٥٦٧٨'), '201012345678');
+  assert.equal(normalizePhone('(010) 1234 5678'), '201012345678');
+  assert.equal(normalizePhone('201012345678'), '201012345678');
+  assert.equal(normalizePhone('12345678'), '12345678');       // 8 digits allowed
+  assert.equal(normalizePhone('1234567'), null);              // too short
+  assert.equal(normalizePhone('1'.repeat(16)), null);         // too long
+  assert.equal(normalizePhone('abc'), null);
+  assert.equal(normalizePhone(''), null);
+  assert.equal(normalizePhone(null), null);
+  assert.equal(normalizePhone(123), null);
+});
+
+test('booker phone is required, normalized, stored on both tables, never public', async () => {
+  const { db, env } = makeEnv(); configure(db);
+  const { status, data } = await post(env, { ...booking('A', 2), customer_name: 'حسن وائل', customer_phone: '٠١٠ ١٢٣٤ ٥٦٧٨' });
+  assert.equal(status, 201);
+  assert.ok(!('customer_phone' in data.reservation), 'phone must not be echoed in the API response');
+  const row = db.db.prepare('SELECT customer_phone FROM reservations WHERE id = ?').get(data.reservation.reference);
+  assert.equal(row.customer_phone, '201012345678');
+  const rows = db.db.prepare('SELECT customer_phone FROM reservation_tickets WHERE reservation_id = ?').all(data.reservation.reference);
+  assert.equal(rows.length, 2);
+  for (const r of rows) assert.equal(r.customer_phone, '201012345678');
+  assert.ok(!JSON.stringify(await avail(env)).includes('201012345678'));
+
+  for (const bad of [undefined, null, '', '   ', 'abc', '123', 12345678]) {
+    const body = { ...booking('A', 1) };
+    if (bad === undefined) delete body.customer_phone; else body.customer_phone = bad;
+    const res = await post(env, body);
+    assert.equal(res.status, 400, `phone ${JSON.stringify(bad)}`);
+    assert.equal(res.data.error.code, 'INVALID_PHONE');
+  }
+  assert.equal(count(db, 'reservations'), 1); // rejected attempts created nothing
+});
+
 test('test mode opens booking without contact details', async () => {
   const { db, env } = makeEnv({ INSTAPAY_ADDRESS: '', WHATSAPP_NUMBER: '' });
   configure(db);
@@ -426,18 +472,17 @@ test('test mode respects the global kill-switch', async () => {
   assert.equal(data.error.code, 'BOOKING_CLOSED');
 });
 
-test('idempotent replay keeps the originally stored name', async () => {
+test('idempotent replay keeps the originally stored name and phone', async () => {
   const { db, env } = makeEnv(); configure(db);
   const key = crypto.randomUUID();
-  const first = await post(env, { ...booking('A', 1, key), customer_name: 'حسن وائل' });
+  const first = await post(env, { ...booking('A', 1, key), customer_name: 'حسن وائل', customer_phone: '01012345678' });
   assert.equal(first.status, 201);
-  const replay = await post(env, { ...booking('A', 1, key), customer_name: 'اسم آخر' });
+  const replay = await post(env, { ...booking('A', 1, key), customer_name: 'اسم آخر', customer_phone: '01199998888' });
   assert.equal(replay.status, 200);
   assert.equal(replay.data.idempotent_replay, true);
   assert.equal(replay.data.reservation.reference, first.data.reservation.reference);
-  assert.equal(
-    db.db.prepare('SELECT customer_name FROM reservations WHERE id = ?').get(first.data.reservation.reference).customer_name,
-    'حسن وائل'
-  );
+  const row = db.db.prepare('SELECT customer_name, customer_phone FROM reservations WHERE id = ?').get(first.data.reservation.reference);
+  assert.equal(row.customer_name, 'حسن وائل');
+  assert.equal(row.customer_phone, '201012345678');
   assert.equal(count(db, 'reservations'), 1);
 });
