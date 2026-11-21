@@ -1,0 +1,27 @@
+{
+  // Cloudflare Pages (Wrangler v4+, V2 build system). Source of truth once deployed.
+  "name": "masrah-saydala",
+  "pages_build_output_dir": "public",
+  "compatibility_date": "2026-11-01",
+
+  // Public, non-secret business configuration.
+  // BOOKING NEVER OPENS until INSTAPAY_ADDRESS and WHATSAPP_NUMBER are filled.
+  "vars": {
+    "BOOKING_ENABLED": "true",
+    "INSTAPAY_ADDRESS": "",            // TODO: e.g. "01XXXXXXXXX" or "name@instapay"
+    "WHATSAPP_NUMBER": "",             // TODO: digits only, e.g. "201XXXXXXXXX" (no +, no spaces)
+    "RESERVATION_TTL_MINUTES": "15",   // temporary hold duration
+    "MAX_TICKETS_PER_BOOKING": "10"    // per-booking quantity limit
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "masrah-saydala",
+      // TODO: replace with the real ID from `npx wrangler d1 list`
+      // (or Cloudflare dashboard -> Storage & Databases -> D1 -> masrah-saydala).
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
