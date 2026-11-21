@@ -1,14 +1,18 @@
 /* ============================================================
    Masrah Saydala — detective noir / vintage investigation office
-   Scene engine: class-toggled CSS TRANSITIONS (IntersectionObserver),
-   never scroll-timeline, so it works in every browser.
+   Scene engine: class-toggled CSS TRANSITIONS (IntersectionObserver).
    SAFETY: every hidden start-state lives inside
    `html.js` + `prefers-reduced-motion: no-preference`.
    No JS, or reduced motion => everything visible and static.
 
-   Flow note: there is no countdown UI. The temporary hold is enforced
-   server-side (expires_at + the availability query ignoring expired
-   rows), so seats self-restore with no client timer and no cron.
+   MOBILE POLICY (max-width:768px):
+   - reveals use opacity+translate only (no blur/brightness filter)
+   - ambient searchlight/grain/curtain/seal are dropped
+   - background-attachment:fixed removed (iOS jank)
+   - evidence cards lose 3D tilt; the seal becomes static (no overlap)
+   - slate labels wrap instead of ellipsizing
+   Desktop behaviour is unchanged.
+   No countdown / no expiry figure anywhere (hold is server-side only).
    ============================================================ */
 
 :root {
@@ -25,8 +29,9 @@
   --pin:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='7' r='5' fill='%238f2433'/%3E%3Ccircle cx='8.5' cy='5.5' r='1.6' fill='%23e0bd7a'/%3E%3Cpath d='M10 11 L10 19' stroke='%236d1a26' stroke-width='1.6'/%3E%3C/svg%3E");
 }
 
-/* ---------- keyframes (time-based only: load + success states) ---------- */
+/* ---------- keyframes ---------- */
 @keyframes riseSeq { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:none; } }
+@keyframes fadeSimple { from { opacity:0; } to { opacity:1; } }
 @keyframes typeIn { from { clip-path:inset(0 0 0 100%); } to { clip-path:inset(0 0 0 0); } }
 @keyframes caret { 50% { opacity:0; } }
 @keyframes slam {
@@ -74,6 +79,7 @@
 * { box-sizing:border-box; }
 html {
   scroll-behavior:smooth; scroll-padding-top:88px;
+  -webkit-text-size-adjust:100%; text-size-adjust:100%;   /* stop iOS font inflation */
   scrollbar-width:thin; scrollbar-color:#8a6f3d #1a1613;
   background:
     radial-gradient(52rem 30rem at 85% -5%, rgba(201,163,92,.16), transparent 60%),
@@ -118,7 +124,11 @@ body::after { /* vignette */
 }
 ::selection { background:var(--burgundy); color:var(--paper); }
 
-main { max-width:1060px; margin:0 auto; padding:0 1rem; position:relative; }
+main {
+  max-width:1060px; margin:0 auto; padding:0 1rem; position:relative;
+  overflow-x:clip; /* kills the sideways scroll the booking glow would cause on any width */
+  overflow-y:visible;
+}
 main::before { /* curtain */
   content:""; position:fixed; inset:0; z-index:80; pointer-events:none; opacity:0;
   background:linear-gradient(115deg, #0b0908 0 46%, rgba(11,9,8,.92) 54%, transparent 62%);
@@ -207,7 +217,7 @@ a { color:var(--gold-bright); }
    ============================================================ */
 @media (prefers-reduced-motion: no-preference) {
 
-  /* default: rise + de-focus, as if a lamp is swung onto the scene */
+  /* default (desktop/tablet): rise + de-focus, as if a lamp is swung onto the scene */
   html.js .scene:not(.scene--load):not(.scene--instant) {
     opacity:0; filter:brightness(.5) blur(7px);
     transform:translateY(34px) scale(.985);
@@ -229,10 +239,8 @@ a { color:var(--gold-bright); }
   html.js .scene[data-scene="02"].is-in .paper { opacity:1; transform:perspective(1200px) rotateX(0) translateY(0); }
   html.js .scene[data-scene="02"] .folder-tab { opacity:0; transform:translateY(10px) rotate(-2deg); transition:opacity .5s, transform .6s var(--ease); }
   html.js .scene[data-scene="02"].is-in .folder-tab { opacity:1; transform:none; transition-delay:.1s; }
-  /* stacked sheets splay apart before the folder is opened, settle after */
   html.js .case-file:not(.is-in)::before { transform:rotate(-3.5deg) translateY(10px); }
   html.js .case-file:not(.is-in)::after { transform:rotate(3deg) translateY(18px); opacity:.35; }
-  /* redaction bars cover text until the scene is uncovered */
   .paper-body p { position:relative; }
   .paper-body p::before {
     content:""; position:absolute; inset:.12em -.18em; z-index:1; pointer-events:none;
@@ -297,6 +305,53 @@ a { color:var(--gold-bright); }
   /* ---- SCENE 01 hero: load-timed, poster develops like a photo ---- */
   .hero.scene .scene-content { opacity:0; animation:riseSeq .8s var(--ease) .95s both; }
   .poster { animation:posterDevelop 1.5s ease 1.15s both, lampFlicker 9s linear 3s infinite; }
+
+  /* ===== MOBILE: same engine, no filters, no curtain/seal, no 3D ===== */
+  @media (max-width:768px) {
+    /* reveal = opacity + short slide only (blur/brightness was the smear) */
+    html.js .scene:not(.scene--load):not(.scene--instant) {
+      opacity:0; filter:none; transform:translateY(18px);
+      transition:opacity .45s var(--ease), transform .5s var(--ease);
+    }
+    html.js .scene.is-in:not(.scene--load):not(.scene--instant) { opacity:1; transform:none; }
+
+    /* no full-screen black wipe, no oversized spinning seal on a phone */
+    main::before, main::after { display:none !important; animation:none !important; opacity:0 !important; }
+
+    /* hero comes in fast and plainly */
+    .hero.scene .scene-content { animation:riseSeq .5s var(--ease) .12s both; }
+    .scene--load .scene-slate span { animation:typeIn .5s steps(20,end) .18s both; }
+    .poster { animation:fadeSimple .5s ease .18s both; } /* drop develop-blur + flicker */
+
+    /* scene 02: flat lift, no perspective hinge */
+    html.js .scene[data-scene="02"] .paper { transform:translateY(18px); transition:opacity .45s var(--ease), transform .5s var(--ease); }
+    html.js .scene[data-scene="02"].is-in .paper { transform:none; }
+
+    /* scene 03: cards slide up, no tilt/scale/perspective */
+    .perf-grid { perspective:none; }
+    html.js .scene[data-scene="03"] .perf-card {
+      transform:translateY(26px);
+      transition:opacity .45s var(--ease), transform .55s var(--ease), box-shadow .2s, border-color .2s;
+      transition-delay:calc(var(--i) * 90ms + 80ms);
+    }
+    html.js .scene[data-scene="03"].is-in .perf-card { transform:none; }
+    html.js .scene[data-scene="03"] #booking-fieldset .field { transform:translateY(12px); }
+    html.js .scene[data-scene="03"].is-in #booking-fieldset .field { transform:none; }
+    html.js .scene[data-scene="03"] .summary { transform:translateY(12px); }
+    html.js .scene[data-scene="03"].is-in .summary { transform:none; }
+
+    /* scene 05: drop straight, no swing rotation */
+    html.js .scene[data-scene="05"] .steps li { transform:translateY(14px); transition:opacity .4s var(--ease), transform .5s var(--ease); }
+    html.js .scene[data-scene="05"].is-in .steps li { transform:none; }
+
+    /* scene 06: fade up, no blur decode */
+    html.js .scene[data-scene="06"] .paper { filter:none; transform:translateY(14px); transition:opacity .5s var(--ease), transform .55s var(--ease); }
+    html.js .scene[data-scene="06"].is-in .paper { transform:none; }
+
+    /* end: plain fade */
+    html.js .scene[data-scene="end"] .scene-content { filter:none; opacity:0; transition:opacity .6s var(--ease); }
+    html.js .scene[data-scene="end"].is-in .scene-content { opacity:1; }
+  }
 }
 
 /* ---------- hero ---------- */
@@ -339,9 +394,8 @@ a { color:var(--gold-bright); }
 .paper h2, .paper h3 { color:var(--burgundy-deep); border-color:var(--burgundy); }
 .case-file { margin:1.5rem 0 2.5rem; position:relative; }
 .folder-tab { position:relative; z-index:1; display:inline-block; background:#d9c69a; color:var(--paper-ink); font-family:var(--font-mono); font-size:.8rem; padding:.35rem 1.2rem; border-radius:8px 8px 0 0; border:1px solid rgba(0,0,0,.15); border-bottom:none; margin-inline-start:1rem; box-shadow:0 -4px 14px -8px rgba(0,0,0,.6); }
-.case-file .paper { border-start-start-radius:0; padding-block-end:5.5rem; } /* reserve room for the seal */
+.case-file .paper { border-start-start-radius:0; padding-block-end:5.5rem; } /* reserve room for the seal (desktop) */
 .paper-body { position:relative; z-index:2; }
-/* stacked sheets peeking above the folder edge (decorative, always visible) */
 .case-file::before, .case-file::after {
   content:""; position:absolute; inset-inline:1.4rem; block-size:26px; z-index:0; pointer-events:none;
   background:linear-gradient(180deg,#e2d2ac,#d6c496); border:1px solid rgba(0,0,0,.12);
@@ -423,7 +477,7 @@ textarea { width:100%; font-family:var(--font-mono); font-size:.82rem; line-heig
 .summary .total { border-block-start:1px dashed rgba(201,163,92,.4); padding-block-start:.5rem; font-size:1.2rem; font-weight:700; background-image:linear-gradient(90deg, transparent, rgba(224,189,122,.22), transparent); background-size:200% 100%; background-repeat:no-repeat; animation:seam 6s linear infinite; }
 .summary .total dd { color:var(--gold-bright); }
 
-/* ---------- payment (time-based: replays each time it is unhidden) ---------- */
+/* ---------- payment ---------- */
 .payment { margin:2rem 0; animation:receiptPrint .7s var(--ease) both; }
 .pay-status { font-size:.95rem; }
 .pay-details { display:grid; gap:.6rem; margin:1rem 0; }
@@ -434,22 +488,14 @@ code { font-family:var(--font-mono); background:rgba(0,0,0,.08); padding:.15rem 
 .amount { font-size:1.6rem; color:var(--burgundy-deep); font-family:var(--font-mono); }
 .instapay-row { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
 .copy-feedback { font-size:.85rem; color:var(--green); font-weight:700; margin-inline-start:.5rem; }
-
-/* pre-commit notice: nothing is in the database yet */
-.pay-pending {
-  background:#3a2f1d; border:1px dashed rgba(201,163,92,.5); border-radius:10px;
-  padding:.85rem 1.1rem; margin:1rem 0; font-size:.93rem; color:var(--paper);
-}
+.pay-pending { background:#3a2f1d; border:1px dashed rgba(201,163,92,.5); border-radius:10px; padding:.85rem 1.1rem; margin:1rem 0; font-size:.93rem; color:var(--paper); }
 .pay-pending b { color:var(--gold-bright); }
-
-/* the order echo shown in BOTH states (reference/tickets appear only after commit) */
 .pay-echo { display:grid; gap:.4rem; margin:0 0 1.1rem; }
 .pay-echo > div { display:flex; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
 .pay-echo dt { color:#6b5d45; font-weight:600; }
 .pay-echo dd { margin:0; font-family:var(--font-mono); }
 .pay-echo .total { border-block-start:1px dashed rgba(143,36,51,.35); padding-block-start:.5rem; font-size:1.15rem; font-weight:700; }
 #pay-committed { margin-bottom:.5rem; }
-
 .tickets { list-style:none; display:flex; flex-wrap:wrap; gap:.5rem; padding:0; margin:.5rem 0 1rem; }
 .tickets li { position:relative; font-family:var(--font-mono); font-size:.9rem; background:var(--coal); color:#e8d9b5; border:1px dashed rgba(201,163,92,.6); border-radius:8px; padding:.35rem .9rem; box-shadow:0 3px 12px rgba(0,0,0,.4); animation:chipPrint .34s cubic-bezier(.2,1.3,.4,1) backwards; }
 .tickets li::before, .tickets li::after { content:""; position:absolute; top:50%; width:10px; height:10px; border-radius:50%; background:var(--ink); border:1px solid rgba(201,163,92,.35); transform:translateY(-50%); }
@@ -459,7 +505,6 @@ code { font-family:var(--font-mono); background:rgba(0,0,0,.08); padding:.15rem 
 .tickets li:nth-child(4){animation-delay:.51s} .tickets li:nth-child(5){animation-delay:.58s} .tickets li:nth-child(6){animation-delay:.65s}
 .tickets li:nth-child(7){animation-delay:.72s} .tickets li:nth-child(8){animation-delay:.79s} .tickets li:nth-child(9){animation-delay:.86s} .tickets li:nth-child(10){animation-delay:.93s}
 .payment .btn-big { margin:.75rem 0 .5rem; display:flex; }
-/* #wa-send is the only DB write; #wa-open is the unblockable fallback anchor */
 #wa-send:not([disabled]), #wa-open:not(.disabled) { animation:live 3s ease-out infinite; }
 
 /* ---------- steps / info / footer ---------- */
@@ -476,19 +521,90 @@ code { font-family:var(--font-mono); background:rgba(0,0,0,.08); padding:.15rem 
 .site-foot::after { content:"FACULTY OF PHARMACY · NEW BUILDING · THIRD FLOOR"; display:block; font-family:var(--font-mono); font-size:.66rem; letter-spacing:.22em; color:var(--paper-dim); opacity:.55; margin-top:1rem; }
 .foot-note { font-size:.8rem; opacity:.8; font-family:var(--font-mono); letter-spacing:.4px; }
 
-/* ---------- responsive ---------- */
+/* ---------- responsive: tablet+ ---------- */
 @media (min-width:640px) { .perf-grid { grid-template-columns:1fr 1fr; } .perf-poster { height:210px; } }
 @media (min-width:880px) { .hero.scene .scene-content { grid-template-columns:1.1fr .9fr; } .poster { max-width:26rem; justify-self:center; } }
-@media (max-width:600px) {
-  .brand { font-size:.82rem; }
-  .site-head { gap:.5rem; padding:.6rem .75rem; }
-  html::after { opacity:.3; }
-  body::before { opacity:.035; }
-  main::after { font-size:clamp(.9rem,6vw,1.4rem); letter-spacing:.24em; border-width:3px; }
+
+/* ============================================================
+   MOBILE HARDENING (layout, not motion — motion handled above)
+   ============================================================ */
+@media (max-width:768px) {
+  html { background-attachment:scroll; scroll-padding-top:76px; }   /* fixed attachment janks on iOS */
+  html::before { display:none; }                                     /* drop the searchlight cone */
+  html::after { opacity:.22; animation:none; }                       /* faint static dust, no drift */
+  body::before { display:none; }                                     /* drop animated grain + overlay blend */
+  body::after { background:radial-gradient(140% 80% at 50% 0%, transparent 55%, rgba(0,0,0,.35)); } /* lighter vignette */
+
+  .site-head { backdrop-filter:none; background:rgba(20,17,15,.97); gap:.5rem; padding:.6rem .75rem; }
+  .brand { font-size:.82rem; letter-spacing:0; }
+  .head-pill { font-size:.66rem; padding:.15rem .5rem; }
+  .head-stamp { display:none; }                                      /* header is tight on a phone */
+
+  h1 { font-size:clamp(1.9rem,8vw,2.6rem); }
+  h1::after { display:none; }                                        /* dangling caret block looks odd when wrapped */
+  h2 { font-size:1.4rem; }
+
+  /* slate labels wrap and read; drop the flanking hairlines that look broken when wrapped */
+  .scene-slate { font-size:.62rem; letter-spacing:.12em; gap:.5rem; margin-bottom:.9rem; }
+  .scene-slate span { white-space:normal; text-overflow:clip; }
+  .scene-slate::before, .scene-slate::after { display:none; }
+
+  /* the seal sits statically under the text — never overlaps, regardless of re-wrap */
+  .case-file .paper { padding-block-end:1.5rem; }
+  .stamp { position:static; display:inline-block; margin-top:1rem; inset:auto; --r:0deg; transform:none; mix-blend-mode:normal; opacity:.85; }
+  .stamp::before { display:none; }
   .case-file::before, .case-file::after { inset-inline:.8rem; }
-  .scene-slate { font-size:.6rem; letter-spacing:.16em; }
-  .scene-slate span { white-space:normal; }
-  .stamp { inset-inline-end:.9rem; bottom:.9rem; font-size:.7rem; }
+
+  .booking::before { inset-inline:-1rem; block-size:240px; opacity:.12; }  /* glow can't bleed off-screen */
+
+  /* comfortable tap targets + no cramped rows */
+  .btn { padding:.8rem 1.2rem; }
+  .btn-big { font-size:1.05rem; padding:1rem; }
+  .qty button { width:2.9rem; height:2.9rem; }
+  .perf-card { padding:1rem; }
+  .perf-poster { height:170px; }
+  .perf-letter { top:1rem; inset-inline-end:1rem; }
+
+  /* key/value rows must not overflow at 320px */
+  .summary div, .pay-echo > div, .pay-details > div { flex-wrap:wrap; }
+  .summary dd, .pay-echo dd { text-align:start; word-break:break-word; }
+  .amount { font-size:1.4rem; }
+  .tickets { padding-inline:.45rem; }                                 /* keep the notch circles on-screen */
+  .tickets li::before { inset-inline-start:-5px; } .tickets li::after { inset-inline-end:-5px; }
+
+  .hero-meta { gap:.45rem; }
+  .tagline { font-size:1rem; }
+  .poster::before, .poster::after { width:64px; height:20px; top:-9px; }
+  .poster-fallback { padding:1.1rem; gap:.7rem; }
+  .pf-date { font-size:1.15rem; }
+}
+
+/* small phones */
+@media (max-width:480px) {
+  main { padding:0 .85rem; }
+  .hero.scene .scene-content { gap:1.4rem; }
+  h1 { font-size:clamp(1.7rem,9vw,2.2rem); }
+  .scene-slate { font-size:.58rem; letter-spacing:.08em; }
+  .flow li { font-size:.78rem; padding:.28rem .6rem; }
+  .perf-poster { height:150px; }
+  .btn-big { font-size:1rem; }
+  .pay-pending, .hazard { font-size:.92rem; padding:.8rem .95rem; }
+  .site-foot::after { font-size:.58rem; letter-spacing:.14em; }
+}
+
+/* hero intro delay compression (these animate outside the motion-safe block) */
+@media (max-width:768px) and (prefers-reduced-motion: no-preference) {
+  .hero-copy > *:nth-child(1) { animation-delay:.18s; }
+  .hero-copy > *:nth-child(2) { animation-delay:.24s; }
+  .hero-copy > *:nth-child(3) { animation-delay:.32s; }
+  .hero-copy > *:nth-child(4) { animation-delay:.4s; }
+  .hero-copy > *:nth-child(5) { animation-delay:.48s; }
+  .kicker::before { animation-delay:.5s; }
+  .tagline::before { animation-delay:.6s; }
+  .hero-meta li:nth-child(1) { animation-delay:.62s; }
+  .hero-meta li:nth-child(2) { animation-delay:.7s; }
+  .hero-meta li:nth-child(3) { animation-delay:.78s; }
+  .pf-stamp { animation-delay:.9s; }
 }
 
 /* ---------- accessibility: static + fully visible ---------- */
