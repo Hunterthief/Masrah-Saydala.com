@@ -1,10 +1,10 @@
 // Masrah Saydala — purchase page logic (vanilla ES module, no dependencies).
-import { formatEGP, formatTime, formatDateAr, formatExpiry } from './format.js';
+import { formatEGP, formatTime, formatDateAr, formatExpiry, normalizePhone } from './format.js';
 import { buildWhatsAppMessage, buildWhatsAppUrl } from './whatsapp.js';
 
 const $ = (id) => document.getElementById(id);
 const state = {
-  data: null, selected: null, qty: 1, reservation: null, customerName: '',
+  data: null, selected: null, qty: 1, reservation: null, customerName: '', customerPhone: '',
   key: null, keySig: null, clockOffset: 0, timer: null, submitting: false,
 };
 const perfEls = { A: $('perf-A'), B: $('perf-B') };
@@ -128,10 +128,17 @@ function hideError() { $('book-error').hidden = true; }
 
 async function submitBooking() {
   if (!state.selected || state.submitting || state.reservation) return;
+  const phone = normalizePhone($('phone-input').value);
+  if (!phone) {
+    showError('من فضلك أدخل رقم موبايل صحيح لمطابقة الدفع (مثال: 01012345678).');
+    $('phone-input').focus();
+    return;
+  }
   const pid = state.selected, qty = state.qty;
   const sig = `${pid}:${qty}`;
   if (state.keySig !== sig) { state.key = crypto.randomUUID(); state.keySig = sig; }
   state.customerName = $('name-input').value.trim();
+  state.customerPhone = phone;
   state.submitting = true;
   hideError();
   $('book-btn').disabled = true;
@@ -141,7 +148,7 @@ async function submitBooking() {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         performance_id: pid, quantity: qty, idempotency_key: state.key,
-        customer_name: state.customerName,
+        customer_name: state.customerName, customer_phone: phone,
       }),
     });
     const data = await res.json().catch(() => null);
@@ -185,7 +192,10 @@ function renderPayment() {
     list.appendChild(li);
   }
 
-  const msg = buildWhatsAppMessage({ event: state.data.event, performance: p, reservation: r, customerName: state.customerName });
+  const msg = buildWhatsAppMessage({
+    event: state.data.event, performance: p, reservation: r,
+    customerName: state.customerName, customerPhone: state.customerPhone,
+  });
   const wa = $('wa-link');
   if (cfg.whatsapp_number) {
     wa.href = buildWhatsAppUrl(cfg.whatsapp_number, msg);
@@ -200,6 +210,7 @@ function renderPayment() {
   }
   $('pay-expired').hidden = true;
   $('name-input').disabled = true;
+  $('phone-input').disabled = true;
   applyInteractionState(); render(); startCountdown();
   $('payment').scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
 }
@@ -235,6 +246,7 @@ function newBooking() {
   state.reservation = null; state.key = null; state.keySig = null; state.qty = 1;
   $('payment').hidden = true;
   $('name-input').disabled = false;
+  $('phone-input').disabled = false;
   hideError(); loadAvailability();
   $('booking').scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
 }
