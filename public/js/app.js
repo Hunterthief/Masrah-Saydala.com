@@ -8,6 +8,7 @@
 // Auto-progression: finishing a step carries the user to the next one (scroll + focus +
 // a "ready" pulse on the control). The WhatsApp press is NEVER auto-fired: it is the only
 // DB write and the only popup gesture, so it must stay a real user click.
+// After choosing a show the cursor lands on the NAME field first, then the number.
 // No countdown / no expiry figure anywhere (hold is server-side only).
 
 import { formatEGP, formatTime, formatDateAr, normalizePhone } from './format.js';
@@ -179,8 +180,8 @@ function selectPerformance(id) {
   hideError();
   render();
   announce(`تم اختيار ${perfById(id).name}`);
-  // AUTO-PROGRESS step 1 -> 2: carry the user to the details form, cursor in the phone field
-  goTo($('booking-fieldset'), '#phone-input');
+  // AUTO-PROGRESS step 1 -> 2: carry the user to the details form, cursor on the NAME field
+  goTo($('booking-fieldset'), '#name-input');
 }
 
 function setQty(n) {
@@ -442,7 +443,7 @@ function newBooking() {
 
   hideError();
   loadAvailability();
-  goTo($('booking'), '#phone-input');   // back to step 1 input
+  goTo($('booking'), '#name-input');   // back to step 1 input, name first
 }
 
 async function copyText(text, feedbackEl) {
