@@ -21,188 +21,225 @@
 </header>
 
 <main>
-  <div id="test-banner" class="hazard" hidden>
-    🧪 وضع الاختبار مفعّل — الحجوزات تجريبية بالكامل.
-    <small>لا تحوّل أي مبلغ فعلي. الأرقام الصادرة تجريبية وتُمسح قبل فتح الحجز للجمهور.</small>
-  </div>
-
-  <!-- A. Hero -->
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="kicker">فريق مسرح صيدلة إسكندرية يقدّم</p>
-      <h1>مكتب حل المشاكل التافهة</h1>
-      <p class="tagline">عرض كوميدي بروح أفلام الغموض… ملفات مختومة، وأسرار تُكشف على خشبة المسرح فقط.</p>
-      <ul class="hero-meta">
-        <li>الخميس 3 ديسمبر 2026</li>
-        <li>كلية الصيدلة — المبنى الجديد — الدور الثالث</li>
-        <li>عرضان في يوم واحد: 5:00 م و 7:00 م</li>
-      </ul>
-      <a class="btn btn-gold" href="#booking">احجز تذكرتك</a>
+  <!-- SCENE 01 — HERO / POSTER -->
+  <section class="hero scene scene--load" data-scene="01">
+    <div class="scene-slate" aria-hidden="true" dir="ltr">
+      <b>SCENE 01</b>
+      <span>A NEW ORIGINAL SHOW ★ PETTY PROBLEMS SOLVERS ★ 03/12/2026</span>
     </div>
-    <figure class="poster">
-      <img id="poster-img" data-src="assets/images/poster.jpg" alt="البوستر الرسمي لعرض مكتب حل المشاكل التافهة" hidden>
-      <div id="poster-fallback" class="poster-fallback" role="img" aria-label="بوستر العرض: مكتب حل المشاكل التافهة، 3 ديسمبر 2026">
-        <span class="pf-top">A NEW ORIGINAL SHOW</span>
-        <span class="pf-title">مكتب حل<br>المشاكل التافهة</span>
-        <span class="pf-stamp">سري للغاية</span>
-        <span class="pf-date" dir="ltr">3 / 12 / 2026</span>
-        <span class="pf-venue">كلية الصيدلة — المبنى الجديد — الدور الثالث</span>
-        <span class="pf-times">الأبواب 4:30 م — العرض 5:00 م</span>
+    <div class="scene-content">
+      <div class="hero-copy">
+        <p class="kicker">فريق مسرح صيدلة إسكندرية يقدّم</p>
+        <h1>مكتب حل المشاكل التافهة</h1>
+        <p class="tagline">عرض كوميدي بروح أفلام الغموض… ملفات مختومة، وأسرار تُكشف على خشبة المسرح فقط.</p>
+        <ul class="hero-meta">
+          <li>الخميس 3 ديسمبر 2026</li>
+          <li>كلية الصيدلة — المبنى الجديد — الدور الثالث</li>
+          <li>عرضان في يوم واحد: 5:00 م و 7:00 م</li>
+        </ul>
+        <a class="btn btn-gold" href="#booking">احجز تذكرتك</a>
       </div>
-      <figcaption>البوستر الرسمي للعرض</figcaption>
-    </figure>
-  </section>
-
-  <!-- B. Show information -->
-  <section class="case-file" aria-labelledby="about-title">
-    <div class="folder-tab" aria-hidden="true">ملف القضية № 2026-12</div>
-    <div class="paper">
-      <h2 id="about-title">عن العرض</h2>
-      <p>على مكتبٍ قديم تتكدّس ملفات لا يأخذها أحد على محمل الجد… فريق مسرح صيدلة إسكندرية يفتح التحقيق في <b>«مكتب حل المشاكل التافهة»</b>: عرض مسرحي كوميدي بأجواء بوليسية كلاسيكية.</p>
-      <p>لا تفاصيل إضافية عن الأحداث — الملف مختوم بختم «سري للغاية»، والحقيقة تُكشف على المسرح فقط.</p>
-      <span class="stamp" aria-hidden="true">TOP SECRET<br>سري للغاية</span>
-    </div>
-  </section>
-
-  <!-- C/D. Performance selection + quantity -->
-  <section id="booking" class="booking" aria-labelledby="booking-title">
-    <div class="section-head">
-      <h2 id="booking-title">احجز تذكرتك</h2>
-      <button id="refresh-avail" class="btn btn-ghost" type="button">تحديث المتاح ⟳</button>
-    </div>
-
-    <ol id="flow" class="flow" aria-label="مراحل الحجز">
-      <li>اختر العرض</li>
-      <li>احجز مؤقتًا</li>
-      <li>حوّل المبلغ</li>
-      <li>أرسل على واتساب</li>
-    </ol>
-
-    <p id="load-status" class="load-status">جارٍ التحقق من توفر التذاكر…</p>
-    <div id="closed-banner" class="banner" hidden>الحجز لم يُفتح بعد — جارٍ استكمال إعدادات الدفع والتواصل. تابعونا!</div>
-
-    <div class="perf-grid" role="group" aria-label="اختيار العرض">
-      <button type="button" class="perf-card" id="perf-A" data-perf="A" aria-pressed="false" disabled>
-        <span class="perf-poster-wrap"><img class="perf-poster" src="assets/images/poster.jpg" alt="بوستر العرض الأول" loading="lazy" decoding="async"></span>
-        <span class="perf-letter" aria-hidden="true">A</span>
-        <span class="perf-name">العرض الأول</span>
-        <span class="perf-line perf-date">…</span>
-        <span class="perf-line">فتح الأبواب: <b class="perf-doors">…</b></span>
-        <span class="perf-line">بداية العرض: <b class="perf-starts">…</b></span>
-        <span class="perf-line">سعر التذكرة: <b class="perf-price">…</b></span>
-        <span class="perf-line">المتاح: <b class="perf-available">…</b></span>
-        <span class="perf-badge off">…</span>
-      </button>
-      <button type="button" class="perf-card" id="perf-B" data-perf="B" aria-pressed="false" disabled>
-        <span class="perf-poster-wrap"><img class="perf-poster" src="assets/images/poster-b.jpg" alt="بوستر العرض الثاني" loading="lazy" decoding="async"></span>
-        <span class="perf-letter" aria-hidden="true">B</span>
-        <span class="perf-name">العرض الثاني</span>
-        <span class="perf-line perf-date">…</span>
-        <span class="perf-line">فتح الأبواب: <b class="perf-doors">…</b></span>
-        <span class="perf-line">بداية العرض: <b class="perf-starts">…</b></span>
-        <span class="perf-line">سعر التذكرة: <b class="perf-price">…</b></span>
-        <span class="perf-line">المتاح: <b class="perf-available">…</b></span>
-        <span class="perf-badge off">…</span>
-      </button>
-    </div>
-
-    <fieldset id="booking-fieldset" disabled>
-      <legend class="visually-hidden">تفاصيل الحجز</legend>
-               <div class="field">
-        <label for="name-input">اسم الحاجز (اختياري)</label>
-        <input id="name-input" type="text" maxlength="60" autocomplete="name">
-      </div>
-      <div class="field">
-        <label for="phone-input">رقم الموبايل (مطلوب لمطابقة الدفع)</label>
-        <input id="phone-input" type="tel" inputmode="tel" maxlength="20" autocomplete="tel"
-               dir="ltr" required>
-        <p class="hint">يُحفظ الاسم والرقم مع الحجز لمطابقة تحويل إنستاباي، ويظهران في رسالة واتساب. لن يُعرضا للعامة.</p>
-      </div>
-      <div class="field">
-        <span class="label" id="qty-label">عدد التذاكر</span>
-        <div class="qty" role="group" aria-labelledby="qty-label">
-          <button type="button" id="qty-minus" aria-label="تقليل عدد التذاكر">−</button>
-          <output id="qty-value" aria-live="polite">1</output>
-          <button type="button" id="qty-plus" aria-label="زيادة عدد التذاكر">+</button>
+      <figure class="poster">
+        <img id="poster-img" data-src="assets/images/poster.jpg" alt="البوستر الرسمي لعرض مكتب حل المشاكل التافهة" hidden>
+        <div id="poster-fallback" class="poster-fallback" role="img" aria-label="بوستر العرض: مكتب حل المشاكل التافهة، 3 ديسمبر 2026">
+          <span class="pf-top">A NEW ORIGINAL SHOW</span>
+          <span class="pf-title">مكتب حل<br>المشاكل التافهة</span>
+          <span class="pf-stamp">سري للغاية</span>
+          <span class="pf-date" dir="ltr">3 / 12 / 2026</span>
+          <span class="pf-venue">كلية الصيدلة — المبنى الجديد — الدور الثالث</span>
+          <span class="pf-times">الأبواب 4:30 م — العرض 5:00 م</span>
         </div>
-        <p class="hint" id="qty-hint"></p>
-      </div>
-      <dl class="summary">
-        <div><dt>العرض</dt><dd id="sum-perf">—</dd></div>
-        <div><dt>عدد التذاكر</dt><dd id="sum-qty">—</dd></div>
-        <div><dt>سعر التذكرة</dt><dd id="sum-unit">—</dd></div>
-        <div class="total"><dt>الإجمالي</dt><dd id="sum-total">—</dd></div>
-      </dl>
-      <button type="button" id="book-btn" class="btn btn-gold btn-big">احجز مؤقتًا وأكمل الدفع</button>
-      <p class="hint">الحجز مؤقت لمدة <b class="ttl-echo">15</b> دقيقة لإتمام الدفع عبر إنستاباي.</p>
-      <p id="book-error" class="error" role="alert" hidden></p>
-    </fieldset>
-  </section>
-
-  <!-- E/F. Payment instructions + WhatsApp handoff -->
-  <section id="payment" class="payment paper" hidden aria-labelledby="pay-title">
-    <h2 id="pay-title">أكمل الدفع عبر إنستاباي</h2>
-    <p class="pay-status">حجزك المؤقت جاهز. <b>لم يتم التحقق من الدفع بعد</b> — التأكيد يتم يدويًا عبر واتساب.</p>
-    <div id="pay-test" class="banner banner-warn" hidden>وضع الاختبار: هذه حجز تجريبي — <b>لا تحوّل أي مبلغ</b>.</div>
-    <dl class="pay-details">
-      <div><dt>رقم الحجز</dt><dd><code id="pay-ref" dir="ltr"></code></dd></div>
-      <div><dt>المبلغ المطلوب</dt><dd><b id="pay-amount" class="amount"></b> ج.م</dd></div>
-      <div id="instapay-block"><dt>حوّل إلى (إنستاباي)</dt>
-        <dd class="instapay-row">
-          <code id="pay-instapay" dir="ltr"></code>
-          <button type="button" id="copy-instapay" class="btn btn-ghost">نسخ</button>
-          <span id="copy-feedback" class="copy-feedback" aria-live="polite"></span>
-        </dd>
-      </div>
-      <div><dt>ينتهي الحجز عند</dt><dd><span id="pay-expiry"></span> — المتبقي <b id="pay-countdown" class="countdown" dir="ltr"></b></dd></div>
-    </dl>
-    <h3>أرقام التذاكر المبدئية</h3>
-    <ul id="pay-tickets" class="tickets"></ul>
-    <p class="hint">أرقام حجز مبدئية تصبح نهائية بعد مراجعة الدفع يدويًا، ثم يرسل المنظمون التذاكر النهائية على واتساب.</p>
-    <div id="pay-expired" class="banner banner-warn" hidden>انتهت مهلة الحجز المؤقت وأُعيدت المقاعد للمتاح. ابدأ حجزًا جديدًا.</div>
-    <a id="wa-link" class="btn btn-wa btn-big" target="_blank" rel="noopener">أرسل صورة دفع إنستاباي على واتساب</a>
-    <div id="wa-fallback" hidden>
-      <label class="label" for="wa-preview">نص رسالة واتساب الجاهزة</label>
-      <textarea id="wa-preview" rows="9" readonly dir="rtl"></textarea>
-      <button type="button" id="copy-message" class="btn btn-ghost">نسخ الرسالة</button>
-      <span id="msg-feedback" class="copy-feedback" aria-live="polite"></span>
-      <p class="hint">لم يُضبط رقم واتساب المنظمين بعد، поэтому زر الإرسال معطّل. انسخ الرسالة لمراجعتها؛ سيُفعَّل الزر تلقائيًا عند إضافة الرقم.</p>
+        <figcaption>البوستر الرسمي للعرض</figcaption>
+      </figure>
     </div>
-    <p class="hint">يفتح واتساب برسالة جاهزة — <b>أرفق صورة الدفع يدويًا قبل الإرسال</b>؛ لا يمكن إرفاقها تلقائيًا.</p>
-    <button type="button" id="new-booking" class="btn btn-ghost">بدء حجز جديد</button>
   </section>
 
-  <!-- G. How it works + quick info -->
-  <section class="how" aria-labelledby="how-title">
-    <h2 id="how-title">خطوات الحجز</h2>
-    <ol class="steps">
-      <li>اختر العرض وعدد التذاكر.</li>
-      <li>اضغط «احجز مؤقتًا» — تُحجز مقاعدك مؤقتًا لمدة <span class="ttl-echo">15</span> دقيقة.</li>
-      <li>حوّل المبلغ المطلوب عبر إنستاباي.</li>
-      <li>أرسل صورة الدفع على واتساب مع رقم الحجز.</li>
-      <li>بعد المراجعة اليدوية تصلك التذاكر النهائية على واتساب.</li>
-    </ol>
+  <!-- SCENE 02 — CASE FILE -->
+  <section class="case-file scene" data-scene="02">
+    <div class="scene-slate" aria-hidden="true" dir="ltr">
+      <b>SCENE 02</b>
+      <span>CASE FILE / 03·12·2026 — TOP SECRET</span>
+    </div>
+    <div class="scene-content">
+      <div class="folder-tab" aria-hidden="true">ملف القضية № 2026-12</div>
+      <div class="paper">
+        <h2 id="about-title">عن العرض</h2>
+        <p>على مكتبٍ قديم تتكدّس ملفات لا يأخذها أحد على محمل الجد… فريق مسرح صيدلة إسكندرية يفتح التحقيق في <b>«مكتب حل المشاكل التافهة»</b>: عرض مسرحي كوميدي بأجواء بوليسية كلاسيكية.</p>
+        <p>لا تفاصيل إضافية عن الأحداث — الملف مختوم بختم «سري للغاية»، والحقيقة تٌكشف على المسرح فقط.</p>
+        <span class="stamp" aria-hidden="true">TOP SECRET<br>سري للغاية</span>
+      </div>
+    </div>
   </section>
 
-  <section class="info paper" aria-labelledby="info-title">
-    <h2 id="info-title">معلومات سريعة</h2>
-    <ul class="info-list">
-      <li><b>المكان:</b> كلية الصيدلة — المبنى الجديد — الدور الثالث.</li>
-      <li><b>التاريخ:</b> الخميس 3 ديسمبر 2026.</li>
-      <li><b>العرض الأول (A):</b> الأبواب 4:30 م — البداية 5:00 م.</li>
-      <li><b>العرض الثاني (B):</b> الأبواب 6:30 م — البداية 7:00 م.</li>
-      <li><b>الدفع:</b> تحويل يدوي عبر إنستاباي، والتأكيد عبر واتساب.</li>
-      <li><b>التواصل:</b>
-        <a id="contact-wa" target="_blank" rel="noopener" hidden>واتساب المنظمين</a>
-        <span id="contact-missing">سيُضاف رقم التواصل عند فتح الحجز.</span>
-      </li>
-    </ul>
+  <!-- SCENE 03 — BOOKING DESK -->
+  <section id="booking" class="booking scene" data-scene="03">
+    <div class="scene-slate" aria-hidden="true" dir="ltr">
+      <b>SCENE 03</b>
+      <span>RESERVATION DESK — DOORS 4:30 / 6:30 — SHOWS 5:00 / 7:00</span>
+    </div>
+    <div class="scene-content">
+      <div class="section-head">
+        <h2 id="booking-title">احجز تذكرتك</h2>
+        <button id="refresh-avail" class="btn btn-ghost" type="button">تحديث المتاح ⟳</button>
+      </div>
+
+      <ol id="flow" class="flow" aria-label="مراحل الحجز">
+        <li>اختر العرض</li>
+        <li>احجز مؤقتًا</li>
+        <li>حوّل المبلغ</li>
+        <li>أرسل على واتساب</li>
+      </ol>
+
+      <p id="load-status" class="load-status">جارٍ التحقق من توفر التذاكر…</p>
+      <div id="closed-banner" class="banner" hidden>الحجز لم يٌفتح بعد — جارٍ استكمال إعدادات الدفع والتواصل. تابعونا!</div>
+
+      <div class="perf-grid" role="group" aria-label="اختيار العرض">
+        <button type="button" class="perf-card" id="perf-A" data-perf="A" aria-pressed="false" disabled>
+          <span class="perf-poster-wrap"><img class="perf-poster" src="assets/images/poster.jpg" alt="بوستر العرض الأول" loading="lazy" decoding="async"></span>
+          <span class="perf-letter" aria-hidden="true">A</span>
+          <span class="perf-name">العرض الأول</span>
+          <span class="perf-line perf-date">…</span>
+          <span class="perf-line">فتح الأبواب: <b class="perf-doors">…</b></span>
+          <span class="perf-line">بداية العرض: <b class="perf-starts">…</b></span>
+          <span class="perf-line">سعر التذكرة: <b class="perf-price">…</b></span>
+          <span class="perf-line">المتاح: <b class="perf-available">…</b></span>
+          <span class="perf-badge off">…</span>
+        </button>
+        <button type="button" class="perf-card" id="perf-B" data-perf="B" aria-pressed="false" disabled>
+          <span class="perf-poster-wrap"><img class="perf-poster" src="assets/images/poster-b.jpg" alt="بوستر العرض الثاني" loading="lazy" decoding="async"></span>
+          <span class="perf-letter" aria-hidden="true">B</span>
+          <span class="perf-name">العرض الثاني</span>
+          <span class="perf-line perf-date">…</span>
+          <span class="perf-line">فتح الأبواب: <b class="perf-doors">…</b></span>
+          <span class="perf-line">بداية العرض: <b class="perf-starts">…</b></span>
+          <span class="perf-line">سعر التذكرة: <b class="perf-price">…</b></span>
+          <span class="perf-line">المتاح: <b class="perf-available">…</b></span>
+          <span class="perf-badge off">…</span>
+        </button>
+      </div>
+
+      <fieldset id="booking-fieldset" disabled>
+        <legend class="visually-hidden">تفاصيل الحجز</legend>
+        <div class="field">
+          <label for="name-input">اسم الحاجز (اختياري)</label>
+          <input id="name-input" type="text" maxlength="60" autocomplete="name" placeholder="مثال: حسن وائل">
+        </div>
+        <div class="field">
+          <label for="phone-input">رقم الموبايل (مطلوب لمطابقة الدفع)</label>
+          <input id="phone-input" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" dir="ltr" required placeholder="01012345678">
+          <p class="hint">يٌحفظ الاسم والرقم مع الحجز لمطابقة تحويل إنستاباي، ويظهران في رسالة واتساب. لن يُعرضا للعامة.</p>
+        </div>
+        <div class="field">
+          <span class="label" id="qty-label">عدد التذاكر</span>
+          <div class="qty" role="group" aria-labelledby="qty-label">
+            <button type="button" id="qty-minus" aria-label="تقليل عدد التذاكر">−</button>
+            <output id="qty-value" aria-live="polite">1</output>
+            <button type="button" id="qty-plus" aria-label="زيادة عدد التذاكر">+</button>
+          </div>
+          <p class="hint" id="qty-hint"></p>
+        </div>
+        <dl class="summary">
+          <div><dt>العرض</dt><dd id="sum-perf">—</dd></div>
+          <div><dt>عدد التذاكر</dt><dd id="sum-qty">—</dd></div>
+          <div><dt>سعر التذكرة</dt><dd id="sum-unit">—</dd></div>
+          <div class="total"><dt>الإجمالي</dt><dd id="sum-total">—</dd></div>
+        </dl>
+        <button type="button" id="book-btn" class="btn btn-gold btn-big">احجز مؤقتًا وأكمل الدفع</button>
+        <p class="hint">الحجز مؤقت لمدة <b class="ttl-echo">15</b> دقيقة لإتمام الدفع عبر إنستاباي.</p>
+        <p id="book-error" class="error" role="alert" hidden></p>
+      </fieldset>
+    </div>
+  </section>
+
+  <!-- SCENE 04 — PAYMENT / WHATSAPP HANDOFF -->
+  <section id="payment" class="payment paper scene scene--instant" data-scene="04" hidden aria-labelledby="pay-title">
+    <div class="scene-slate" aria-hidden="true" dir="ltr">
+      <b>SCENE 04</b>
+      <span>INSTAPAY TRANSFER — MANUAL VERIFICATION ONLY</span>
+    </div>
+    <div class="scene-content">
+      <h2 id="pay-title">أكمل الدفع عبر إنستاباي</h2>
+      <p class="pay-status">حجزك المؤقت جاهز. <b>لم يتم التحقق من الدفع بعد</b> — التأكيد يتم يدويًا عبر واتساب.</p>
+      <div id="pay-test" class="banner banner-warn" hidden>وضع الاختبار: هذه حجز تجريبي — <b>لا تحوّل أي مبلغ</b>.</div>
+      <dl class="pay-details">
+        <div><dt>رقم الحجز</dt><dd><code id="pay-ref" dir="ltr"></code></dd></div>
+        <div><dt>المبلغ المطلوب</dt><dd><b id="pay-amount" class="amount"></b> ج.م</dd></div>
+        <div id="instapay-block"><dt>حوّل إلى (إنستاباي)</dt>
+          <dd class="instapay-row">
+            <code id="pay-instapay" dir="ltr"></code>
+            <button type="button" id="copy-instapay" class="btn btn-ghost">نسخ</button>
+            <span id="copy-feedback" class="copy-feedback" aria-live="polite"></span>
+          </dd>
+        </div>
+        <div><dt>ينتهي الحجز عند</dt><dd><span id="pay-expiry"></span> — المتبقي <b id="pay-countdown" class="countdown" dir="ltr"></b></dd></div>
+      </dl>
+      <h3>أرقام التذاكر المبدئية</h3>
+      <ul id="pay-tickets" class="tickets"></ul>
+      <p class="hint">أرقام حجز مبدئية تصبح نهائية بعد مراجعة الدفع يدويًا، ثم يرسل المنظمون التذاكر النهائية على واتساب.</p>
+      <div id="pay-expired" class="banner banner-warn" hidden>انتهت مهلة الحجز المؤقت وأُعيدت المقاعد للمتاح. ابدأ حجزًا جديدًا.</div>
+      <a id="wa-link" class="btn btn-wa btn-big" target="_blank" rel="noopener">أرسل صورة دفع إنستاباي على واتساب</a>
+      <div id="wa-fallback" hidden>
+        <label class="label" for="wa-preview">نص رسالة واتساب الجاهزة</label>
+        <textarea id="wa-preview" rows="9" readonly dir="rtl"></textarea>
+        <button type="button" id="copy-message" class="btn btn-ghost">نسخ الرسالة</button>
+        <span id="msg-feedback" class="copy-feedback" aria-live="polite"></span>
+        <p class="hint">لم يُضبط رقم واتساب المنظمين بعد، لذلك زر الإرسال معطل. انسخ الرسالة لمراجعتها؛ سيُفعَّل الزر تلقائيًا عند إضافة الرقم.</p>
+      </div>
+      <p class="hint">يفتح واتساب برسالة جاهزة — <b>أرفق صورة دفع إنستاباي يدويًا قبل الإرسال</b>؛ لا يمكن إرفاقها تلقائيًا.</p>
+      <button type="button" id="new-booking" class="btn btn-ghost">بدء حجز جديد</button>
+    </div>
+  </section>
+
+  <!-- SCENE 05 — PROCEDURE -->
+  <section class="how scene" data-scene="05">
+    <div class="scene-slate" aria-hidden="true" dir="ltr">
+      <b>SCENE 05</b>
+      <span>PROCEDURE — FIVE STEPS TO CONFIRM</span>
+    </div>
+    <div class="scene-content">
+      <h2 id="how-title">خطوات الحجز</h2>
+      <ol class="steps">
+        <li>اختر العرض وعدد التذاكر.</li>
+        <li>اضغط «احجز مؤقتًا» — تُحجز مقاعدك مؤقتًا لمدة <span class="ttl-echo">15</span> دقيقة.</li>
+        <li>حوّل المبلغ المطلوب عبر إنستاباي.</li>
+        <li>أرسل صورة دفع إنستاباي على واتساب مع رقم الحجز.</li>
+        <li>بعد المراجعة اليدوية تصلك التذاكر النهائية على واتساب.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- SCENE 06 — INTEL -->
+  <section class="info paper scene" data-scene="06">
+    <div class="scene-slate" aria-hidden="true" dir="ltr">
+      <b>SCENE 06</b>
+      <span>FACULTY OF PHARMACY · NEW BUILDING · THIRD FLOOR</span>
+    </div>
+    <div class="scene-content">
+      <h2 id="info-title">معلومات سريعة</h2>
+      <ul class="info-list">
+        <li><b>المكان:</b> كلية الصيدلة — المبنى الجديد — الدور الثالث.</li>
+        <li><b>التاريخ:</b> الخميس 3 ديسمبر 2026.</li>
+        <li><b>العرض الأول (A):</b> الأبواب 4:30 م — البداية 5:00 م.</li>
+        <li><b>العرض الثاني (B):</b> الأبواب 6:30 م — البداية 7:00 م.</li>
+        <li><b>الدفع:</b> تحويل يدوي عبر إنستاباي، والتأكيد عبر واتساب.</li>
+        <li><b>التواصل:</b>
+          <a id="contact-wa" target="_blank" rel="noopener" hidden>واتساب المنظمين</a>
+          <span id="contact-missing">سيُضاف رقم التواصل عند فتح الحجز.</span>
+        </li>
+      </ul>
+    </div>
   </section>
 </main>
 
-<footer class="site-foot">
-  <p>مكتب حل المشاكل التافهة — فريق مسرح صيدلة إسكندرية © 2026</p>
-  <p class="foot-note">الدفع يدوي عبر إنستاباي • التأكيد يدوي عبر واتساب • لا مدفوعات إلكترونية على الموقع</p>
+<footer class="site-foot scene scene--end">
+  <div class="scene-slate" aria-hidden="true" dir="ltr">
+    <b>END OF FILE</b>
+    <span>TOP SECRET — سري للغاية</span>
+  </div>
+  <div class="scene-content">
+    <p>مكتب حل المشاكل التافهة — فريق مسرح صيدلة إسكندرية © 2026</p>
+    <p class="foot-note">الدفع يدوي عبر إنستاباي • التأكيد يدوي عبر واتساب • لا مدفوعات إلكترونية على الموقع</p>
+  </div>
 </footer>
 <div id="status-live" class="visually-hidden" aria-live="polite"></div>
 </body>
