@@ -7,8 +7,8 @@
   <meta name="description" content="احجز تذاكر عرض «مكتب حل المشاكل التافهة» — فريق مسرح صيدلة إسكندرية. الخميس 3 ديسمبر 2026، كلية الصيدلة، المبنى الجديد، الدور الثالث. الدفع عبر إنستاباي والتأكيد عبر واتساب.">
   <meta name="theme-color" content="#161311">
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
-  <link rel="stylesheet" href="css/main.css">
-  <script type="module" src="js/app.js"></script>
+  <link rel="stylesheet" href="css/main.css?v=4">
+  <script type="module" src="js/app.js?v=4"></script>
 </head>
 <body>
 <noscript><div class="banner banner-warn noscript">يتطلب الحجز تفعيل JavaScript في المتصفح.</div></noscript>
@@ -48,7 +48,7 @@
       <div class="hero-copy">
         <p class="kicker">فريق مسرح صيدلة إسكندرية يقدّم</p>
         <h1>مكتب حل المشاكل التافهة</h1>
-        <p class="tagline">عرض كوميدي بروح أفلام الغموض… ملفات مختومة، وأسرار تُكشف على خشبة المسرح فقط.</p>
+        <p class="tagline">عرض كوميدي بروح أفلام الغموض… ملفات مختومة، وأسرار تٌكشف على خشبة المسرح فقط.</p>
         <ul class="hero-meta">
           <li>الخميس 3 ديسمبر 2026</li>
           <li>كلية الصيدلة — المبنى الجديد — الدور الثالث</li>
@@ -104,13 +104,13 @@
 
       <ol id="flow" class="flow" aria-label="مراحل الحجز">
         <li>اختر العرض</li>
-        <li>احجز مؤقتًا</li>
+        <li>أنشئ الحجز</li>
         <li>حوّل المبلغ</li>
-        <li>أرسل على واتساب</li>
+        <li>أرسل الصورة</li>
       </ol>
 
       <p id="load-status" class="load-status">جارٍ التحقق من توفر التذاكر…</p>
-      <div id="closed-banner" class="banner" hidden>الحجز لم يُفتح بعد — جارٍ استكمال إعدادات الدفع والتواصل. تابعونا!</div>
+      <div id="closed-banner" class="banner" hidden>الحجز لم يٌفتح بعد — جارٍ استكمال إعدادات الدفع والتواصل. تابعونا!</div>
 
       <div class="perf-grid" role="group" aria-label="اختيار العرض">
         <button type="button" class="perf-card" id="perf-A" data-perf="A" aria-pressed="false" disabled>
@@ -146,7 +146,7 @@
         <div class="field">
           <label for="phone-input">رقم الموبايل (مطلوب لمطابقة الدفع)</label>
           <input id="phone-input" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" dir="ltr" required placeholder="01012345678">
-          <p class="hint">يُحفظ الاسم والرقم مع الحجز لمطابقة تحويل إنستاباي، ويظهران في رسالة واتساب. لن يُعرضا للعامة.</p>
+          <p class="hint">يُحفظ الاسم والرقم مع الحجز لمطابقة تحويل إنستاباي، ويظهران في رسالة واتساب. لن يٌعرضا للعامة.</p>
         </div>
         <div class="field">
           <span class="label" id="qty-label">عدد التذاكر</span>
@@ -163,8 +163,10 @@
           <div><dt>سعر التذكرة</dt><dd id="sum-unit">—</dd></div>
           <div class="total"><dt>الإجمالي</dt><dd id="sum-total">—</dd></div>
         </dl>
-        <button type="button" id="book-btn" class="btn btn-gold btn-big">احجز مؤقتًا وأكمل الدفع</button>
-        <p class="hint">الحجز مؤقت لمدة <b class="ttl-echo">15</b> دقيقة لإتمام الدفع عبر إنستاباي.</p>
+
+        <!-- id MUST be wa-book-btn: app.js binds this id and nothing else -->
+        <button type="button" id="wa-book-btn" class="btn btn-wa btn-big">أرسل صورة دفع إنستاباي على واتساب</button>
+        <p class="hint">لا تُحفظ التذاكر في النظام إلا عند الضغط على هذا الزر. بعدها يُنشأ حجز مؤقت لمدة <b class="ttl-echo">15</b> دقيقة ويفتح واتساب لإرفاق صورة الدفع.</p>
         <p id="book-error" class="error" role="alert" hidden></p>
       </fieldset>
     </div>
@@ -204,9 +206,7 @@
         <span id="msg-feedback" class="copy-feedback" aria-live="polite"></span>
         <p class="hint">لم يُضبط رقم واتساب المنظمين بعد، لذلك زر الإرسال معطّل. انسخ الرسالة لمراجعتها؛ سيُفعَّل الزر تلقائيًا عند إضافة الرقم.</p>
       </div>
-      <p class="hint">
-  إذا لم يفتح واتساب تلقائيًا، اضغط هذا الزر. يجب إرفاق صورة الدفع يدويًا قبل الإرسال؛ لا يمكن إرفاقها تلقائيًا.
-</p>
+      <p class="hint">إذا لم يفتح واتساب تلقائيًا، اضغط هذا الزر. يجب إرفاق صورة الدفع يدويًا قبل الإرسال؛ لا يمكن إرفاقها تلقائيًا.</p>
       <button type="button" id="new-booking" class="btn btn-ghost">بدء حجز جديد</button>
     </div>
   </section>
@@ -220,10 +220,10 @@
     <div class="scene-content">
       <h2 id="how-title">خطوات الحجز</h2>
       <ol class="steps">
-        <li>اختر العرض وعدد التذاكر.</li>
-        <li>اضغط «احجز مؤقتًا» — تُحجز مقاعدك مؤقتًا لمدة <span class="ttl-echo">15</span> دقيقة.</li>
+        <li>اختر العرض وعدد التذاكر، وأدخل رقم الموبايل.</li>
+        <li>اضغط زر واتساب — هنا فقط يُنشأ حجز مؤقت لمدة <span class="ttl-echo">15</span> دقيقة ويظهر رقم الحجز وأرقام التذاكر.</li>
         <li>حوّل المبلغ المطلوب عبر إنستاباي.</li>
-        <li>أرسل صورة دفع إنستاباي على واتساب مع رقم الحجز.</li>
+        <li>أرفق صورة دفع إنستاباي يدويًا في محادثة واتساب وأرسلها.</li>
         <li>بعد المراجعة اليدوية تصلك التذاكر النهائية على واتساب.</li>
       </ol>
     </div>
