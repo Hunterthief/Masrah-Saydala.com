@@ -5,9 +5,10 @@
 //   Step 2  "متابعة إلى الدفع" (continueToPayment)  -> renders payment panel, STILL no DB
 //   Step 3  "سجّل الحجز وأرسل..." (#wa-send)        -> the ONLY POST /api/reservations
 //
-// No countdown and no expiry figure shown to the user. The temporary hold is still
-// enforced server-side (expires_at + the availability query ignoring expired rows),
-// so an abandoned WhatsApp press self-releases its seats with no cron and no client timer.
+// Auto-progression: finishing a step carries the user to the next one (scroll + focus +
+// a "ready" pulse on the control). The WhatsApp press is NEVER auto-fired: it is the only
+// DB write and the only popup gesture, so it must stay a real user click.
+// No countdown / no expiry figure anywhere (hold is server-side only).
 
 import { formatEGP, formatTime, formatDateAr, normalizePhone } from './format.js';
 import { buildWhatsAppMessage, buildWhatsAppUrl } from './whatsapp.js';
@@ -17,6 +18,10 @@ document.documentElement.classList.add('js');
 const $ = (id) => document.getElementById(id);
 const toggle = (id, isHidden) => { const el = $(id); if (el) el.hidden = isHidden; };
 const setText = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
+
+// Set to false to keep the auto-scroll but stop stealing focus (e.g. if the mobile
+// keyboard popping up on show-select feels intrusive).
+const AUTO_FOCUS = true;
 
 const state = {
   data: null,
@@ -36,6 +41,18 @@ const perfEls = { A: $('perf-A'), B: $('perf-B') };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const announce = (msg) => setText('status-live', msg);
 const perfById = (id) => state.data?.performances.find((p) => p.id === id);
+
+/* ---------- auto-progression helper ---------- */
+// Smooth-scrolls an element into view, then (optionally) focuses a control inside it.
+// focus({preventScroll:true}) so the focus doesn't fight the smooth scroll.
+function goTo(el, focusSel) {
+  if (!el) return;
+  el.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+  if (AUTO_FOCUS && focusSel) {
+    const f = $(focusSel) || document.querySelector(focusSel);
+    f?.focus({ preventScroll: true });
+  }
+}
 
 function maxQty() {
   const p = perfById(state.selected);
@@ -123,7 +140,6 @@ function render() {
   }
 
   if (state.selected && !perfById(state.selected)?.bookable) {
-    // seats vanished while the panel was open: bail out of the pending state
     state.selected = null;
     if (state.pending && !state.reservation) { state.pending = false; toggle('payment', true); }
   }
@@ -142,7 +158,10 @@ function applyInteractionState() {
   const btn = $('book-btn');
   if (btn) {
     btn.disabled = !open || state.submitting;
-    btn.textContent = 'متابعة إلى الدفع';
+    btn.textContent = state.submitting ? 'جارٍ إنشاء الحجز…' : 'متابعة إلى الدفع';
+    // "ready" pulse only when the step is genuinely completable (valid phone typed)
+    const phoneOk = !!normalizePhone($('phone-input')?.value || '');
+    btn.classList.toggle('ready', open && phoneOk && !state.submitting);
   }
 
   const send = $('wa-send');
@@ -160,6 +179,8 @@ function selectPerformance(id) {
   hideError();
   render();
   announce(`تم اختيار ${perfById(id).name}`);
+  // AUTO-PROGRESS step 1 -> 2: carry the user to the details form, cursor in the phone field
+  goTo($('booking-fieldset'), '#phone-input');
 }
 
 function setQty(n) {
@@ -185,7 +206,6 @@ function renderSummary() {
   setText('qty-hint', `الحد الأقصى لكل حجز: ${state.data.config.max_per_booking} — المتاح لهذا العرض: ${p.available}`);
 }
 
-// Errors surface in whichever section the user is acting on.
 function showError(msg) {
   const inPanel = !$('payment')?.hidden;
   const active = $(inPanel ? 'pay-error' : 'book-error');
@@ -195,9 +215,7 @@ function showError(msg) {
 }
 function hideError() { toggle('book-error', true); toggle('pay-error', true); }
 
-/* ------------------------------------------------------------------
-   STEP 2 — continue to payment. Validation + panel only. ZERO writes.
-   ------------------------------------------------------------------ */
+/* STEP 2 — continue to payment. Validation + panel only. ZERO writes. */
 function continueToPayment() {
   if (state.pending || state.reservation) return;
   if (!state.selected) { showError('اختر العرض أولًا.'); return; }
@@ -217,11 +235,8 @@ function continueToPayment() {
   renderPendingPanel();
   render();
   announce('راجع المبلغ وتعليمات التحويل. لا يُسجَّـل الحجز إلا عند ضغط زر واتساب.');
-  scrollToPayment();
-}
-
-function scrollToPayment() {
-  $('payment')?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+  // AUTO-PROGRESS step 2 -> 3: panel is open, focus the WhatsApp button
+  goTo($('payment'), '#wa-send');
 }
 
 /** STATE A of the payment panel — no reference, no ticket numbers. */
@@ -265,10 +280,8 @@ function renderPendingPanel() {
   if (nb) nb.textContent = 'تعديل الحجز';
 }
 
-/* ------------------------------------------------------------------
-   STEP 3 — the single database write. Opens the tab synchronously
-   (still inside the click gesture), then navigates it after the POST.
-   ------------------------------------------------------------------ */
+/* STEP 3 — the single database write. Opens the tab synchronously
+   (still inside the click gesture), then navigates it after the POST. */
 async function commitAndOpenWhatsApp() {
   if (state.reservation || state.submitting) return;
   if (!state.pending || !state.selected) return;
@@ -276,7 +289,6 @@ async function commitAndOpenWhatsApp() {
   const cfg = state.data.config;
   const hasWa = !!cfg.whatsapp_number;
 
-  // Must happen before any await, or popup blockers kill it.
   let tab = null;
   if (hasWa) { try { tab = window.open('', '_blank'); } catch { tab = null; } }
 
@@ -340,12 +352,12 @@ async function commitAndOpenWhatsApp() {
         state.key = null; state.keySig = null;
         await loadAvailability();
       }
-      resetSendButton();
+      resetSendButton();   // stay put, keep focus on the retry control
     }
   } catch {
     if (tab && !tab.closed) tab.close();
     showError('تعذر الاتصال بالخادم. تحقق من الإنترنت وحاول مجددًا.');
-    resetSendButton();   // key deliberately kept: retry must not double-book
+    resetSendButton();     // key deliberately kept: retry must not double-book
   } finally {
     state.submitting = false;
     applyInteractionState();
@@ -360,12 +372,11 @@ function resetSendButton() {
   send.textContent = cfg?.whatsapp_number
     ? 'سجّل الحجز وأرسل صورة الدفع على واتساب'
     : 'سجّل الحجز وعاين رسالة واتساب';
+  send.focus({ preventScroll: true });
 }
 
 /** STATE B — reference + ticket numbers appear only now. */
 function renderCommitted(r, url) {
-  const cfg = state.data.config;
-
   toggle('pay-pending', true);
   toggle('pay-committed', false);
   setText('pay-ref', r.reference);
@@ -408,6 +419,9 @@ function renderCommitted(r, url) {
 
   applyInteractionState();
   render();
+
+  // AUTO-PROGRESS step 3 -> 4: land the user on the confirmed block + the send/open control
+  goTo($('pay-committed'), url ? '#wa-open' : '#new-booking');
 }
 
 function newBooking() {
@@ -428,7 +442,7 @@ function newBooking() {
 
   hideError();
   loadAvailability();
-  $('booking')?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
+  goTo($('booking'), '#phone-input');   // back to step 1 input
 }
 
 async function copyText(text, feedbackEl) {
@@ -510,6 +524,13 @@ function init() {
   $('copy-message')?.addEventListener('click', () => copyText($('wa-preview')?.value || '', $('msg-feedback')));
   $('new-booking')?.addEventListener('click', newBooking);
   $('refresh-avail')?.addEventListener('click', loadAvailability);
+
+  // live "ready" pulse on the continue button as the phone is typed (no full render per keystroke)
+  $('phone-input')?.addEventListener('input', () => {
+    const open = !!state.data?.booking_open && !!state.selected && !state.pending && !state.reservation && !state.submitting;
+    const ok = !!normalizePhone($('phone-input')?.value || '');
+    $('book-btn')?.classList.toggle('ready', open && ok);
+  });
 
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && !state.reservation) loadAvailability();
