@@ -6,7 +6,6 @@ export function buildWhatsAppMessage({ event, performance, reservation, customer
     `مرحبًا، أريد تأكيد حجز عرض «${event.name}»`,
     customerName ? `الاسم: ${customerName}` : null,
     `العرض: ${performance.id} — ${performance.name}`,
-    `التاريخ: ${performance.event_date}`,
     `فتح الأبواب: ${formatTime(performance.doors_open)} — بداية العرض: ${formatTime(performance.starts_at)}`,
     `عدد التذاكر: ${reservation.quantity}`,
     `رقم الحجز: ${reservation.reference}`,
