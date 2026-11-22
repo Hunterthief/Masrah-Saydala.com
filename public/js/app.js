@@ -1,18 +1,16 @@
 // Masrah Saydala — purchase page logic (vanilla ES module, no dependencies).
 //
 // Flow contract:
-//   Step 1  choose show / qty / name / phone        -> no network, no DB
-//   Step 2  "متابعة إلى الدفع" (continueToPayment)  -> renders payment panel, STILL no DB
-//   Step 3  "سجّل الحجز وأرسل..." (#wa-send)        -> the ONLY POST /api/reservations
+//   Step 1  choose show / qty / name / phone          -> no network, no DB
+//   Step 2  "متابعة إلى الدفع" (continueToPayment)     -> payment panel + upload slot, STILL no DB
+//   Step 3  attach screenshot (client-compressed)      -> still no DB, just a local preview
+//   Step 4  "سجّل الحجز وأرفق صورة الدفع" (#pay-submit) -> the ONLY POST /api/reservations
 //
-// Auto-progression: finishing a step carries the user to the next one (scroll + focus +
-// a "ready" pulse on the control). The WhatsApp press is NEVER auto-fired: it is the only
-// DB write and the only popup gesture, so it must stay a real user click.
-// After choosing a show the cursor lands on the NAME field first, then the number.
-// No countdown / no expiry figure anywhere (hold is server-side only).
+// The screenshot is downscaled + re-encoded on-device via <canvas> before upload:
+// that keeps it inside D1's per-request budget AND sanitizes it (EXIF/payload stripped).
+// No WhatsApp, no popups, no countdown, no expiry figure.
 
 import { formatEGP, formatTime, formatDateAr, normalizePhone } from './format.js';
-import { buildWhatsAppMessage, buildWhatsAppUrl } from './whatsapp.js';
 
 document.documentElement.classList.add('js');
 
@@ -20,22 +18,17 @@ const $ = (id) => document.getElementById(id);
 const toggle = (id, isHidden) => { const el = $(id); if (el) el.hidden = isHidden; };
 const setText = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
 
-// Set to false to keep the auto-scroll but stop stealing focus (e.g. if the mobile
-// keyboard popping up on show-select feels intrusive).
-const AUTO_FOCUS = true;
+const AUTO_FOCUS = true;          // false = keep auto-scroll, stop focus-stealing
+const CAP_CHARS = 360_000;        // must match core.MAX_IMAGE_CHARS
+const RAW_LIMIT = 8 * 1024 * 1024; // reject absurd originals before processing
 
 const state = {
-  data: null,
-  selected: null,
-  qty: 1,
-  pending: false,        // payment panel open, NOT yet committed
-  reservation: null,     // committed: has reference + ticket numbers
-  customerName: '',
-  customerPhone: '',
-  key: null,             // idempotency key for the single commit attempt
-  keySig: null,
-  clockOffset: 0,
-  submitting: false,
+  data: null, selected: null, qty: 1,
+  pending: false, reservation: null,
+  customerName: '', customerPhone: '',
+  paymentImage: null,             // data-URI, set only after a successful compress
+  imageName: '', imageKb: 0,
+  key: null, keySig: null, clockOffset: 0, submitting: false,
 };
 
 const perfEls = { A: $('perf-A'), B: $('perf-B') };
@@ -43,22 +36,17 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const announce = (msg) => setText('status-live', msg);
 const perfById = (id) => state.data?.performances.find((p) => p.id === id);
 
-/* ---------- auto-progression helper ---------- */
-// Smooth-scrolls an element into view, then (optionally) focuses a control inside it.
-// focus({preventScroll:true}) so the focus doesn't fight the smooth scroll.
 function goTo(el, focusSel) {
   if (!el) return;
   el.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
-  if (AUTO_FOCUS && focusSel) {
-    const f = $(focusSel) || document.querySelector(focusSel);
-    f?.focus({ preventScroll: true });
-  }
+  if (AUTO_FOCUS && focusSel) ($(focusSel) || document.querySelector(focusSel))?.focus({ preventScroll: true });
 }
 
+// Quantity is bounded only by remaining seats now (no per-booking business cap).
 function maxQty() {
   const p = perfById(state.selected);
   if (!p) return 1;
-  return Math.max(1, Math.min(p.available, state.data.config.max_per_booking));
+  return Math.max(1, p.available);
 }
 
 async function loadAvailability() {
@@ -72,16 +60,12 @@ async function loadAvailability() {
     render();
   } catch {
     const el = $('load-status');
-    if (el) {
-      el.hidden = false;
-      el.textContent = 'تعذر تحميل حالة التذاكر. اضغط «تحديث المتاح» للمحاولة مجددًا.';
-    }
+    if (el) { el.hidden = false; el.textContent = 'تعذر تحميل حالة التذاكر. اضغط «تحديث المتاح» للمحاولة مجددًا.'; }
   }
 }
 
 function updateHeadStatus() {
-  const d = state.data;
-  const pill = $('head-status');
+  const d = state.data, pill = $('head-status');
   if (!pill) return;
   if (!d) { pill.textContent = 'جارٍ التحقق…'; pill.className = 'head-pill idle'; return; }
   if (d.config.test_mode) { pill.textContent = 'وضع الاختبار'; pill.className = 'head-pill test'; }
@@ -90,24 +74,20 @@ function updateHeadStatus() {
 }
 
 function updateFlow() {
-  const hasSel = !!state.selected;
-  const pending = !!state.pending;
-  const done = !!state.reservation;
+  const hasSel = !!state.selected, pending = !!state.pending, done = !!state.reservation;
+  const attached = !!state.paymentImage;
   document.querySelectorAll('#flow li').forEach((li, i) => {
-    const n = i + 1;
-    let cls = '';
+    const n = i + 1; let cls = '';
     if (n === 1) cls = hasSel ? 'done' : 'active';
     else if (n === 2) cls = (pending || done) ? 'done' : (hasSel ? 'active' : '');
-    else if (n === 3) cls = done ? 'done' : (pending ? 'active' : '');
-    else cls = done ? 'active' : '';
+    else if (n === 3) cls = (attached || done) ? 'done' : (pending ? 'active' : '');
+    else cls = done ? 'active' : (attached ? 'active' : '');
     li.className = cls;
   });
 }
 
 function render() {
-  const d = state.data;
-  if (!d) return;
-
+  const d = state.data; if (!d) return;
   toggle('closed-banner', !d.booking_open);
   toggle('test-banner', !d.config.test_mode);
   updateHeadStatus();
@@ -119,22 +99,16 @@ function render() {
   }
 
   for (const p of d.performances) {
-    const el = perfEls[p.id];
-    if (!el) continue;
-
+    const el = perfEls[p.id]; if (!el) continue;
     el.querySelector('.perf-date').textContent = formatDateAr(p.event_date);
     el.querySelector('.perf-doors').textContent = formatTime(p.doors_open);
     el.querySelector('.perf-starts').textContent = formatTime(p.starts_at);
-    el.querySelector('.perf-price').textContent = p.configured
-      ? `${formatEGP(p.price_piasters)} ج.م` : 'يُعلن لاحقًا';
-    el.querySelector('.perf-available').textContent = p.configured
-      ? `${p.available} تذكرة` : '—';
-
+    el.querySelector('.perf-price').textContent = p.configured ? `${formatEGP(p.price_piasters)} ج.م` : 'يُعلن لاحقًا';
+    el.querySelector('.perf-available').textContent = p.configured ? `${p.available} تذكرة` : '—';
     const badge = el.querySelector('.perf-badge');
     if (p.bookable) { badge.textContent = 'متاح للحجز'; badge.className = 'perf-badge ok'; }
     else if (p.configured && p.available <= 0) { badge.textContent = 'اكتمل العدد'; badge.className = 'perf-badge soldout'; }
     else { badge.textContent = 'غير متاح بعد'; badge.className = 'perf-badge off'; }
-
     el.disabled = !p.bookable || state.pending || !!state.reservation;
     el.setAttribute('aria-pressed', String(state.selected === p.id));
     el.classList.toggle('selected', state.selected === p.id);
@@ -153,35 +127,32 @@ function render() {
 
 function applyInteractionState() {
   const open = !!state.data?.booking_open && !!state.selected && !state.pending && !state.reservation;
-  const fs = $('booking-fieldset');
-  if (fs) fs.disabled = !open;
+  const fs = $('booking-fieldset'); if (fs) fs.disabled = !open;
 
   const btn = $('book-btn');
   if (btn) {
     btn.disabled = !open || state.submitting;
-    btn.textContent = state.submitting ? 'جارٍ إنشاء الحجز…' : 'متابعة إلى الدفع';
-    // "ready" pulse only when the step is genuinely completable (valid phone typed)
-    const phoneOk = !!normalizePhone($('phone-input')?.value || '');
-    btn.classList.toggle('ready', open && phoneOk && !state.submitting);
+    btn.textContent = state.submitting ? 'جارٍ التحضير…' : 'متابعة إلى الدفع';
+    btn.classList.toggle('ready', open && !!normalizePhone($('phone-input')?.value || '') && !state.submitting);
   }
 
-  const send = $('wa-send');
-  if (send) {
+  const att = $('pay-image-btn');
+  if (att) att.disabled = !state.pending || !!state.reservation || state.submitting;
+
+  const sub = $('pay-submit');
+  if (sub) {
     const locked = !!state.reservation;
-    send.disabled = locked || state.submitting || !state.pending;
-    if (locked) send.hidden = true;
+    sub.disabled = locked || state.submitting || !state.pending || !state.paymentImage;
+    sub.classList.toggle('ready', state.pending && !state.submitting && !!state.paymentImage && !locked);
+    if (locked) { sub.hidden = true; att && (att.hidden = true); }
   }
 }
 
 function selectPerformance(id) {
   if (state.pending || state.reservation) return;
-  state.selected = id;
-  state.qty = 1;
-  hideError();
-  render();
+  state.selected = id; state.qty = 1; hideError(); render();
   announce(`تم اختيار ${perfById(id).name}`);
-  // AUTO-PROGRESS step 1 -> 2: carry the user to the details form, cursor on the NAME field
-  goTo($('booking-fieldset'), '#name-input');
+  goTo($('booking-fieldset'), '#name-input');   // name first, then number
 }
 
 function setQty(n) {
@@ -195,16 +166,12 @@ function setQty(n) {
 
 function renderSummary() {
   const p = perfById(state.selected);
-  if (!p) {
-    for (const id of ['sum-perf', 'sum-qty', 'sum-unit', 'sum-total']) setText(id, '—');
-    setText('qty-hint', '');
-    return;
-  }
+  if (!p) { for (const id of ['sum-perf','sum-qty','sum-unit','sum-total']) setText(id,'—'); setText('qty-hint',''); return; }
   setText('sum-perf', `${p.name} (${p.id}) — ${formatTime(p.starts_at)}`);
   setText('sum-qty', state.qty);
   setText('sum-unit', `${formatEGP(p.price_piasters)} ج.م`);
   setText('sum-total', `${formatEGP(p.price_piasters * state.qty)} ج.م`);
-  setText('qty-hint', `الحد الأقصى لكل حجز: ${state.data.config.max_per_booking} — المتاح لهذا العرض: ${p.available}`);
+  setText('qty-hint', `المتاح لهذا العرض: ${p.available} تذكرة`);   // no per-booking max anymore
 }
 
 function showError(msg) {
@@ -216,18 +183,13 @@ function showError(msg) {
 }
 function hideError() { toggle('book-error', true); toggle('pay-error', true); }
 
-/* STEP 2 — continue to payment. Validation + panel only. ZERO writes. */
+/* STEP 2 — validation + panel only. ZERO writes. */
 function continueToPayment() {
   if (state.pending || state.reservation) return;
   if (!state.selected) { showError('اختر العرض أولًا.'); return; }
-
   const phoneInput = $('phone-input');
   const phone = phoneInput ? normalizePhone(phoneInput.value) : null;
-  if (!phone) {
-    showError('من فضلك أدخل رقم موبايل صحيح لمطابقة الدفع (مثال: 01012345678).');
-    phoneInput?.focus();
-    return;
-  }
+  if (!phone) { showError('من فضلك أدخل رقم موبايل صحيح لمطابقة الدفع (مثال: 01012345678).'); phoneInput?.focus(); return; }
 
   state.customerPhone = phone;
   state.customerName = ($('name-input')?.value || '').trim();
@@ -235,22 +197,14 @@ function continueToPayment() {
   hideError();
   renderPendingPanel();
   render();
-  announce('راجع المبلغ وتعليمات التحويل. لا يُسجَّـل الحجز إلا عند ضغط زر واتساب.');
-  // AUTO-PROGRESS step 2 -> 3: panel is open, focus the WhatsApp button
-  goTo($('payment'), '#wa-send');
+  announce('حوّل المبلغ ثم أرفق صورة الدفع. لا يُسجَّـل الحجز إلا عند ضغط زر التسجيل.');
+  goTo($('payment'), '#pay-image-btn');   // auto-progress to the attach control
 }
 
-/** STATE A of the payment panel — no reference, no ticket numbers. */
 function renderPendingPanel() {
-  const p = perfById(state.selected);
-  const cfg = state.data.config;
-  if (!p) return;
-
+  const p = perfById(state.selected), cfg = state.data.config; if (!p) return;
   const pay = $('payment');
-  if (pay) {
-    pay.hidden = false;
-    pay.style.animation = 'none'; void pay.offsetWidth; pay.style.animation = '';
-  }
+  if (pay) { pay.hidden = false; pay.style.animation = 'none'; void pay.offsetWidth; pay.style.animation = ''; }
 
   toggle('pay-pending', false);
   toggle('pay-committed', true);
@@ -266,118 +220,133 @@ function renderPendingPanel() {
   toggle('instapay-block', noDetails);
   if (!noDetails) setText('pay-instapay', cfg.instapay_address);
 
-  const send = $('wa-send');
-  if (send) {
-    send.hidden = false;
-    send.disabled = false;
-    send.textContent = cfg.whatsapp_number
-      ? 'سجّل الحجز وأرسل صورة الدفع على واتساب'
-      : 'سجّل الحجز وعاين رسالة واتساب';
-  }
-  toggle('wa-open', true);
-  toggle('wa-fallback', true);
+  const att = $('pay-image-btn'); if (att) { att.hidden = false; att.disabled = false; att.textContent = 'اختيار صورة التحويل'; }
+  const sub = $('pay-submit'); if (sub) { sub.hidden = false; sub.disabled = !state.paymentImage; sub.textContent = 'سجّل الحجز وأرفق صورة الدفع'; }
+  toggle('pay-image-preview', !state.paymentImage);
+  if (state.paymentImage) showPreview();
 
-  const nb = $('new-booking');
-  if (nb) nb.textContent = 'تعديل الحجز';
+  const nb = $('new-booking'); if (nb) nb.textContent = 'تعديل الحجز';
 }
 
-/* STEP 3 — the single database write. Opens the tab synchronously
-   (still inside the click gesture), then navigates it after the POST. */
-async function commitAndOpenWhatsApp() {
+/* ---- on-device image pipeline: validate -> downscale -> re-encode -> preview ---- */
+function loadImage(url) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('LOAD')); i.src = url; });
+}
+async function compressImage(file) {
+  if (!file) return null;
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('TYPE');
+  if (file.size > RAW_LIMIT) throw new Error('TOO_BIG');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const ladder = [[1280, .72], [1024, .64], [820, .58], [640, .52]];
+    for (const [maxDim, q] of ladder) {
+      const s = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * s));
+      const h = Math.max(1, Math.round(img.naturalHeight * s));
+      canvas.width = w; canvas.height = h;
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);   // flatten alpha for JPEG
+      ctx.drawImage(img, 0, 0, w, h);
+      let d = canvas.toDataURL('image/jpeg', q);
+      if (!/^data:image\/jpeg;base64,/.test(d)) d = canvas.toDataURL('image/png'); // rare fallback
+      if (d.length <= CAP_CHARS && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(d))
+        return { dataUri: d, kb: Math.round((d.length * 0.75) / 1024) };
+    }
+    throw new Error('TOO_BIG');
+  } finally { URL.revokeObjectURL(url); }
+}
+function showPreview() {
+  const thumb = $('pay-thumb'), meta = $('pay-image-meta');
+  if (thumb && state.paymentImage) thumb.src = state.paymentImage;
+  if (meta) meta.textContent = `${state.imageName || 'صورة'} • ~${state.imageKb} KB بعد الضغط`;
+  toggle('pay-image-preview', false);
+}
+async function onPickImage() {
+  if (!state.pending || state.reservation) return;
+  const input = $('pay-image-input');
+  const file = input?.files?.[0];
+  if (!file) return;
+  hideError();
+  const att = $('pay-image-btn');
+  if (att) { att.disabled = true; att.textContent = 'جارٍ معالجة الصورة…'; }
+  try {
+    const out = await compressImage(file);
+    state.paymentImage = out.dataUri;
+    state.imageName = (file.name || 'صورة').slice(0, 40);
+    state.imageKb = out.kb;
+    showPreview();
+    applyInteractionState();
+    updateFlow();
+    announce('تم إرفاق الصورة. اضغط «سجّل الحجز» للحفظ.');
+  } catch (e) {
+    state.paymentImage = null;
+    toggle('pay-image-preview', true);
+    const map = { TYPE: 'الملف يجب أن يكون صورة (PNG أو JPG أو WEBP).', TOO_BIG: 'الصورة كبيرة جدًا حتى بعد الضغط. جرّب لقطة شاشة أوضح أو أصغر.', LOAD: 'تعذر قراءة الصورة. جرّب ملفًا آخر.' };
+    showError(map[e.message] || 'تعذر معالجة الصورة. جرّب مرة أخرى.');
+  } finally {
+    if (att) { att.disabled = false; att.textContent = state.paymentImage ? 'تغيير الصورة' : 'اختيار صورة التحويل'; }
+    applyInteractionState();
+  }
+}
+
+/* STEP 4 — the single database write. No popup, no window.open. */
+async function recordBooking() {
   if (state.reservation || state.submitting) return;
   if (!state.pending || !state.selected) return;
+  if (!state.paymentImage) { showError('أرفق صورة دفع إنستاباي أولًا.'); return; }
 
-  const cfg = state.data.config;
-  const hasWa = !!cfg.whatsapp_number;
-
-  let tab = null;
-  if (hasWa) { try { tab = window.open('', '_blank'); } catch { tab = null; } }
-
-  const pid = state.selected;
-  const qty = state.qty;
-  const sig = `${pid}:${qty}`;
+  const pid = state.selected, qty = state.qty, sig = `${pid}:${qty}`;
   if (state.keySig !== sig) { state.key = crypto.randomUUID(); state.keySig = sig; }
 
-  state.submitting = true;
-  hideError();
-  const send = $('wa-send');
-  if (send) { send.disabled = true; send.textContent = 'جارٍ تسجيل الحجز…'; }
+  state.submitting = true; hideError();
+  const sub = $('pay-submit');
+  if (sub) { sub.disabled = true; sub.textContent = 'جارٍ تسجيل الحجز وحفظ الصورة…'; }
 
   try {
     const res = await fetch('/api/reservations', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        performance_id: pid,
-        quantity: qty,
-        idempotency_key: state.key,
-        customer_name: state.customerName,
-        customer_phone: state.customerPhone,
+        performance_id: pid, quantity: qty, idempotency_key: state.key,
+        customer_name: state.customerName, customer_phone: state.customerPhone,
+        payment_image: state.paymentImage,
       }),
     });
     const data = await res.json().catch(() => null);
 
     if (res.ok && data?.ok) {
       state.reservation = data.reservation;
-      state.key = null; state.keySig = null;   // attempt finished: retire the key
-
-      const p = perfById(state.reservation.performance_id);
-      const msg = buildWhatsAppMessage({
-        event: state.data.event,
-        performance: p,
-        reservation: state.reservation,
-        customerName: state.customerName,
-        customerPhone: state.customerPhone,
-      });
-      const url = hasWa ? buildWhatsAppUrl(cfg.whatsapp_number, msg) : null;
-
-      renderCommitted(state.reservation, url);
+      state.key = null; state.keySig = null;     // attempt finished: retire the key
+      renderCommitted(state.reservation);
       loadAvailability();
-
-      if (hasWa) {
-        if (tab && !tab.closed) {
-          try { tab.opener = null; tab.location.href = url; announce('تم تسجيل الحجز وفتح واتساب.'); }
-          catch { announce('تم تسجيل الحجز. اضغط «افتح واتساب».'); }
-        } else {
-          showError('تم تسجيل حجزك، لكن المتصفح منع الفتح التلقائي. اضغط «افتح واتساب» أدناه.');
-          announce('تم تسجيل الحجز. افتح واتساب من الزر الظاهر.');
-        }
-      } else {
-        announce('تم تسجيل الحجز. راجع نص رسالة واتساب في الأسفل.');
-      }
+      announce('تم تسجيل الحجز وحفظ صورة الدفع. سيراجعها المنظمون ويتواصلون معك.');
     } else {
-      if (tab && !tab.closed) tab.close();
       showError(data?.error?.message || 'حدث خطأ غير متوقع. حاول مرة أخرى.');
       const code = data?.error?.code;
-      if (['INSUFFICIENT_CAPACITY', 'PERFORMANCE_DISABLED', 'BOOKING_CLOSED', 'IDEMPOTENCY_CONFLICT'].includes(code)) {
-        state.key = null; state.keySig = null;
-        await loadAvailability();
+      if (['INSUFFICIENT_CAPACITY','PERFORMANCE_DISABLED','BOOKING_CLOSED','IDEMPOTENCY_CONFLICT'].includes(code)) {
+        state.key = null; state.keySig = null; await loadAvailability();
       }
-      resetSendButton();   // stay put, keep focus on the retry control
+      resetSubmit();   // stay put, keep the attached image, focus retry
     }
   } catch {
-    if (tab && !tab.closed) tab.close();
     showError('تعذر الاتصال بالخادم. تحقق من الإنترنت وحاول مجددًا.');
-    resetSendButton();     // key deliberately kept: retry must not double-book
+    resetSubmit();     // key kept: retry must not double-book
   } finally {
     state.submitting = false;
     applyInteractionState();
   }
 }
-
-function resetSendButton() {
-  const send = $('wa-send');
-  const cfg = state.data?.config;
-  if (!send) return;
-  send.disabled = false;
-  send.textContent = cfg?.whatsapp_number
-    ? 'سجّل الحجز وأرسل صورة الدفع على واتساب'
-    : 'سجّل الحجز وعاين رسالة واتساب';
-  send.focus({ preventScroll: true });
+function resetSubmit() {
+  const sub = $('pay-submit'); if (!sub) return;
+  sub.disabled = !state.paymentImage;
+  sub.textContent = 'سجّل الحجز وأرفق صورة الدفع';
+  sub.focus({ preventScroll: true });
 }
 
-/** STATE B — reference + ticket numbers appear only now. */
-function renderCommitted(r, url) {
+/* STATE B — reference + ticket numbers + the user's own thumbnail appear only now. */
+function renderCommitted(r) {
   toggle('pay-pending', true);
   toggle('pay-committed', false);
   setText('pay-ref', r.reference);
@@ -385,76 +354,48 @@ function renderCommitted(r, url) {
   const list = $('pay-tickets');
   if (list) {
     list.textContent = '';
-    for (const t of r.ticket_numbers) {
-      const li = document.createElement('li');
-      li.dir = 'ltr'; li.textContent = t;
-      list.appendChild(li);
-    }
+    for (const t of r.ticket_numbers) { const li = document.createElement('li'); li.dir = 'ltr'; li.textContent = t; list.appendChild(li); }
   }
+  const shot = $('pay-shot');
+  if (shot && state.paymentImage) { shot.src = state.paymentImage; shot.hidden = false; }
 
-  const send = $('wa-send');
-  if (send) send.hidden = true;
+  const sub = $('pay-submit'); if (sub) sub.hidden = true;
+  const att = $('pay-image-btn'); if (att) att.hidden = true;
+  toggle('pay-image-preview', true);
 
-  const open = $('wa-open');
-  if (url) {
-    if (open) { open.href = url; open.hidden = false; }
-    toggle('wa-fallback', true);
-  } else {
-    if (open) open.hidden = true;
-    toggle('wa-fallback', false);
-    const prev = $('wa-preview');
-    if (prev) {
-      const p = perfById(r.performance_id);
-      prev.value = buildWhatsAppMessage({
-        event: state.data.event, performance: p, reservation: r,
-        customerName: state.customerName, customerPhone: state.customerPhone,
-      });
-    }
-  }
-
-  const nb = $('new-booking');
-  if (nb) nb.textContent = 'بدء حجز جديد';
-
+  const nb = $('new-booking'); if (nb) nb.textContent = 'بدء حجز جديد';
   $('name-input') && ($('name-input').disabled = true);
   $('phone-input') && ($('phone-input').disabled = true);
 
   applyInteractionState();
   render();
-
-  // AUTO-PROGRESS step 3 -> 4: land the user on the confirmed block + the send/open control
-  goTo($('pay-committed'), url ? '#wa-open' : '#new-booking');
+  goTo($('pay-committed'), null);   // scroll to confirmation; no further on-site action
 }
 
 function newBooking() {
-  state.pending = false;
-  state.reservation = null;
-  state.key = null;
-  state.keySig = null;
-  state.qty = 1;
-  state.customerPhone = '';
-  state.customerName = '';
+  state.pending = false; state.reservation = null;
+  state.key = null; state.keySig = null;
+  state.qty = 1; state.customerPhone = ''; state.customerName = '';
+  state.paymentImage = null; state.imageName = ''; state.imageKb = 0;
 
   toggle('payment', true);
-
-  const ni = $('name-input'), pi = $('phone-input');
+  const ni = $('name-input'), pi = $('phone-input'), ii = $('pay-image-input');
   if (ni) { ni.disabled = false; ni.value = ''; }
   if (pi) { pi.disabled = false; pi.value = ''; }
+  if (ii) ii.value = '';
   setText('qty-value', 1);
+  toggle('pay-image-preview', true);
 
   hideError();
   loadAvailability();
-  goTo($('booking'), '#name-input');   // back to step 1 input, name first
+  goTo($('booking'), '#name-input');
 }
 
 async function copyText(text, feedbackEl) {
   if (!feedbackEl) return;
   try {
     if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
-    else {
-      const ta = document.createElement('textarea');
-      ta.value = text; document.body.appendChild(ta); ta.select();
-      document.execCommand('copy'); ta.remove();
-    }
+    else { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
     feedbackEl.textContent = 'تم النسخ ✓';
   } catch { feedbackEl.textContent = 'تعذر النسخ — انسخ يدويًا.'; }
   setTimeout(() => { feedbackEl.textContent = ''; }, 2500);
@@ -467,81 +408,52 @@ function initCardPosters() {
     if (img.complete && img.naturalWidth === 0) hide(img);
   });
 }
-
 function initPoster() {
-  const img = $('poster-img');
-  if (!img) return;
+  const img = $('poster-img'); if (!img) return;
   img.addEventListener('load', () => { img.hidden = false; toggle('poster-fallback', true); });
   img.addEventListener('error', () => { /* keep the styled fallback poster */ });
   img.src = img.dataset.src;
 }
-
 function initScenes() {
   const scenes = [...document.querySelectorAll('.scene')];
-  const revealTargets = scenes.filter((s) =>
-    !s.classList.contains('scene--load') && !s.classList.contains('scene--instant') && !s.hidden);
-
-  if (!('IntersectionObserver' in window)) {
-    scenes.forEach((s) => s.classList.add('is-in'));
-  } else {
+  const revealTargets = scenes.filter((s) => !s.classList.contains('scene--load') && !s.classList.contains('scene--instant') && !s.hidden);
+  if (!('IntersectionObserver' in window)) scenes.forEach((s) => s.classList.add('is-in'));
+  else {
     const revealer = new IntersectionObserver((entries, obs) => {
       for (const e of entries) if (e.isIntersecting) { e.target.classList.add('is-in'); obs.unobserve(e.target); }
     }, { threshold: 0.08, rootMargin: '0px 0px -6% 0px' });
     revealTargets.forEach((s) => revealer.observe(s));
-
     const tabs = new Map([...document.querySelectorAll('.spine-tab')].map((t) => [t.dataset.go, t]));
-    const byId = {
-      '01': $('scene-01'), '02': $('scene-02'), '03': $('booking'), '04': $('payment'),
-      '05': $('scene-05'), '06': $('scene-06'), end: $('scene-end'),
-    };
+    const byId = { '01': $('scene-01'),'02': $('scene-02'),'03': $('booking'),'04': $('payment'),'05': $('scene-05'),'06': $('scene-06'), end: $('scene-end') };
     const tracker = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        const tab = tabs.get(e.target.dataset.scene);
-        if (tab && e.isIntersecting) { tabs.forEach((t) => t.classList.remove('active')); tab.classList.add('active'); }
-      }
+      for (const e of entries) { const tab = tabs.get(e.target.dataset.scene); if (tab && e.isIntersecting) { tabs.forEach((t) => t.classList.remove('active')); tab.classList.add('active'); } }
     }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
     Object.values(byId).forEach((el) => el && tracker.observe(el));
   }
-
-  const forceVisibleNow = () => {
-    const vh = innerHeight;
-    scenes.forEach((s) => {
-      const rect = s.getBoundingClientRect();
-      if (rect.top < vh * 0.92 && rect.bottom > 0) s.classList.add('is-in');
-    });
-  };
+  const forceVisibleNow = () => { const vh = innerHeight; scenes.forEach((s) => { const r = s.getBoundingClientRect(); if (r.top < vh * 0.92 && r.bottom > 0) s.classList.add('is-in'); }); };
   if (document.readyState === 'complete') setTimeout(forceVisibleNow, 60);
   else addEventListener('load', () => setTimeout(forceVisibleNow, 60), { once: true });
 }
 
 function init() {
   for (const el of Object.values(perfEls)) el?.addEventListener('click', () => selectPerformance(el.dataset.perf));
-
   $('qty-minus')?.addEventListener('click', () => setQty(state.qty - 1));
   $('qty-plus')?.addEventListener('click', () => setQty(state.qty + 1));
-  $('book-btn')?.addEventListener('click', continueToPayment);      // STEP 2 — no write
-  $('wa-send')?.addEventListener('click', commitAndOpenWhatsApp);   // STEP 3 — the only write
+  $('book-btn')?.addEventListener('click', continueToPayment);                 // STEP 2 — no write
+  $('pay-image-btn')?.addEventListener('click', () => $('pay-image-input')?.click());
+  $('pay-image-input')?.addEventListener('change', onPickImage);              // compress + preview, no write
+  $('pay-submit')?.addEventListener('click', recordBooking);                  // STEP 4 — the only write
   $('copy-instapay')?.addEventListener('click', () => copyText(state.data?.config.instapay_address || '', $('copy-feedback')));
-  $('copy-message')?.addEventListener('click', () => copyText($('wa-preview')?.value || '', $('msg-feedback')));
   $('new-booking')?.addEventListener('click', newBooking);
   $('refresh-avail')?.addEventListener('click', loadAvailability);
 
-  // live "ready" pulse on the continue button as the phone is typed (no full render per keystroke)
   $('phone-input')?.addEventListener('input', () => {
     const open = !!state.data?.booking_open && !!state.selected && !state.pending && !state.reservation && !state.submitting;
-    const ok = !!normalizePhone($('phone-input')?.value || '');
-    $('book-btn')?.classList.toggle('ready', open && ok);
+    $('book-btn')?.classList.toggle('ready', open && !!normalizePhone($('phone-input')?.value || ''));
   });
 
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && !state.reservation) loadAvailability();
-  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !state.reservation) loadAvailability(); });
 
-  initCardPosters();
-  initPoster();
-  initScenes();
-  updateFlow();
-  loadAvailability();
+  initCardPosters(); initPoster(); initScenes(); updateFlow(); loadAvailability();
 }
-
 init();
