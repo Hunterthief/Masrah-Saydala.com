@@ -6,8 +6,13 @@
 //   Step 3  attach screenshot (client-compressed)      -> still no DB, just a local preview
 //   Step 4  "سجّل الحجز وأرفق صورة الدفع" (#pay-submit) -> the ONLY POST /api/reservations
 //
-// The screenshot is downscaled + re-encoded on-device via <canvas> before upload:
-// that keeps it inside D1's per-request budget AND sanitizes it (EXIF/payload stripped).
+// IMAGE PIPELINE AND CSP: the page is served with img-src 'self' data: (NO blob:).
+// Therefore we must NEVER route the picked file through URL.createObjectURL/blob:.
+// We decode via createImageBitmap(file) (no URL at all, ignores img-src) and fall
+// back to FileReader -> data: URI -> <img> (data: IS allowed). The re-encoded output
+// is a data:image/...;base64 URI, which the preview/confirmation <img> can also load.
+// Canvas re-encoding also strips EXIF/any embedded payload, so the stored blob is a
+// plain raster — same sanitization guarantee as before, without the blocked blob URL.
 // No WhatsApp, no popups, no countdown, no expiry figure.
 
 import { formatEGP, formatTime, formatDateAr, normalizePhone } from './format.js';
@@ -228,38 +233,78 @@ function renderPendingPanel() {
   const nb = $('new-booking'); if (nb) nb.textContent = 'تعديل الحجز';
 }
 
-/* ---- on-device image pipeline: validate -> downscale -> re-encode -> preview ---- */
-function loadImage(url) {
-  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('LOAD')); i.src = url; });
+/* ---- on-device image pipeline: validate -> decode (NO blob:) -> downscale -> re-encode -> preview ---- */
+
+// Decode a File WITHOUT ever creating a blob: URL (our CSP img-src has no blob:).
+// Preferred: createImageBitmap(file) — decodes the File directly, no resource fetch,
+// so img-src is never consulted. Fallback: FileReader -> data: URI -> <img>, and
+// data: IS permitted by img-src 'self' data:.
+function readAsDataURL(file) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = () => rej(new Error('READ'));
+    fr.readAsDataURL(file);
+  });
 }
+function loadImageFromSrc(src) {
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error('LOAD'));
+    i.src = src;            // a data: URI here — allowed by img-src
+  });
+}
+function dimsOf(bmp) {
+  // ImageBitmap exposes width/height; HTMLImageElement exposes naturalWidth/Height.
+  const w = bmp.naturalWidth || bmp.width;
+  const h = bmp.naturalHeight || bmp.height;
+  return { w, h };
+}
+async function decodeFile(file) {
+  if (typeof createImageBitmap === 'function') {
+    try { return await createImageBitmap(file); } catch { /* fall through to data: path */ }
+  }
+  const dataUrl = await readAsDataURL(file);
+  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) throw new Error('READ');
+  return await loadImageFromSrc(dataUrl);
+}
+
 async function compressImage(file) {
   if (!file) return null;
-  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('TYPE');
+  // Accept the codecs a phone actually produces; the canvas re-encode below always
+  // outputs image/jpeg, so even an HEIC/AVIF source becomes a CSP-safe jpeg data URI.
+  if (!/^image\/(jpeg|png|webp|heic|heif|avif)$/.test(file.type)) throw new Error('TYPE');
   if (file.size > RAW_LIMIT) throw new Error('TOO_BIG');
-  const url = URL.createObjectURL(file);
+
+  const bmp = await decodeFile(file);
   try {
-    const img = await loadImage(url);
+    const { w: nw, h: nh } = dimsOf(bmp);
+    if (!nw || !nh) throw new Error('LOAD');
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const ladder = [[1280, .72], [1024, .64], [820, .58], [640, .52]];
     for (const [maxDim, q] of ladder) {
-      const s = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
-      const w = Math.max(1, Math.round(img.naturalWidth * s));
-      const h = Math.max(1, Math.round(img.naturalHeight * s));
+      const s = Math.min(1, maxDim / Math.max(nw, nh));
+      const w = Math.max(1, Math.round(nw * s));
+      const h = Math.max(1, Math.round(nh * s));
       canvas.width = w; canvas.height = h;
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);   // flatten alpha for JPEG
-      ctx.drawImage(img, 0, 0, w, h);
+      ctx.drawImage(bmp, 0, 0, w, h);
       let d = canvas.toDataURL('image/jpeg', q);
       if (!/^data:image\/jpeg;base64,/.test(d)) d = canvas.toDataURL('image/png'); // rare fallback
       if (d.length <= CAP_CHARS && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(d))
         return { dataUri: d, kb: Math.round((d.length * 0.75) / 1024) };
     }
     throw new Error('TOO_BIG');
-  } finally { URL.revokeObjectURL(url); }
+  } finally {
+    if (typeof bmp.close === 'function') bmp.close();   // free the ImageBitmap (no-op for <img>)
+  }
 }
+
 function showPreview() {
   const thumb = $('pay-thumb'), meta = $('pay-image-meta');
-  if (thumb && state.paymentImage) thumb.src = state.paymentImage;
+  if (thumb && state.paymentImage) thumb.src = state.paymentImage;   // data: URI — CSP-ok
   if (meta) meta.textContent = `${state.imageName || 'صورة'} • ~${state.imageKb} KB بعد الضغط`;
   toggle('pay-image-preview', false);
 }
@@ -283,7 +328,12 @@ async function onPickImage() {
   } catch (e) {
     state.paymentImage = null;
     toggle('pay-image-preview', true);
-    const map = { TYPE: 'الملف يجب أن يكون صورة (PNG أو JPG أو WEBP).', TOO_BIG: 'الصورة كبيرة جدًا حتى بعد الضغط. جرّب لقطة شاشة أوضح أو أصغر.', LOAD: 'تعذر قراءة الصورة. جرّب ملفًا آخر.' };
+    const map = {
+      TYPE: 'الملف يجب أن يكون صورة (PNG أو JPG أو WEBP).',
+      TOO_BIG: 'الصورة كبيرة جدًا حتى بعد الضغط. جرّب لقطة شاشة أوضح أو أصغر.',
+      LOAD: 'تعذر فك ترميز الصورة. جرّب ملفًا آخر.',
+      READ: 'تعذر قراءة الملف. جرّب صورة أخرى.',
+    };
     showError(map[e.message] || 'تعذر معالجة الصورة. جرّب مرة أخرى.');
   } finally {
     if (att) { att.disabled = false; att.textContent = state.paymentImage ? 'تغيير الصورة' : 'اختيار صورة التحويل'; }
@@ -357,7 +407,7 @@ function renderCommitted(r) {
     for (const t of r.ticket_numbers) { const li = document.createElement('li'); li.dir = 'ltr'; li.textContent = t; list.appendChild(li); }
   }
   const shot = $('pay-shot');
-  if (shot && state.paymentImage) { shot.src = state.paymentImage; shot.hidden = false; }
+  if (shot && state.paymentImage) { shot.src = state.paymentImage; shot.hidden = false; }   // data: URI — CSP-ok
 
   const sub = $('pay-submit'); if (sub) sub.hidden = true;
   const att = $('pay-image-btn'); if (att) att.hidden = true;
