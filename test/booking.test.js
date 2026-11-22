@@ -15,6 +15,8 @@ import { formatEGP, formatTime, formatDateAr, normalizePhone } from '../public/j
 import { buildWhatsAppMessage, buildWhatsAppUrl } from '../public/js/whatsapp.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+  // tiny valid 1x1 jpeg data-uri, well under MAX_IMAGE_CHARS
+const IMG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q==';
 
 class D1Statement {
   constructor(shim, sql) { this.shim = shim; this.sql = sql; this.args = []; }
