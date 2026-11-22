@@ -6,13 +6,12 @@
 
   // Public, non-secret business configuration.
   // BOOKING NEVER OPENS until INSTAPAY_ADDRESS and WHATSAPP_NUMBER are filled.
-  "vars": {
-    "BOOKING_ENABLED": "true",
-    "INSTAPAY_ADDRESS": "01007227992",            // TODO: e.g. "01XXXXXXXXX" or "name@instapay"
-    "WHATSAPP_NUMBER": "201007227992",             // TODO: digits only, e.g. "201XXXXXXXXX" (no +, no spaces)
-    "RESERVATION_TTL_MINUTES": "15",   // temporary hold duration
-    "MAX_TICKETS_PER_BOOKING": "10"    // per-booking quantity limit
-  },
+"vars": {
+  "INSTAPAY_ADDRESS": "01XXXXXXXXX",     // still required (buyer needs the destination)
+  "WHATSAPP_NUMBER": "",                 // optional now: only the Scene-6 organizer link
+  "BOOKING_ENABLED": "true",
+  "REVIEW_TOKEN": "67123"   // NEW: gates /review and /api/payment
+},
 
   "d1_databases": [
     {
