@@ -7,8 +7,8 @@
   // Public, non-secret business configuration.
   // BOOKING NEVER OPENS until INSTAPAY_ADDRESS and WHATSAPP_NUMBER are filled.
 "vars": {
-  "INSTAPAY_ADDRESS": "01XXXXXXXXX",     // still required (buyer needs the destination)
-  "WHATSAPP_NUMBER": "",                 // optional now: only the Scene-6 organizer link
+  "INSTAPAY_ADDRESS": "01007227992",            // TODO: e.g. "01XXXXXXXXX" or "name@instapay"
+  "WHATSAPP_NUMBER": "201007227992",               // optional now: only the Scene-6 organizer link
   "BOOKING_ENABLED": "true",
   "REVIEW_TOKEN": "67123"   // NEW: gates /review and /api/payment
 },
