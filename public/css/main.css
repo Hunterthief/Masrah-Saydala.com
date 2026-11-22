@@ -1,7 +1,8 @@
 /* ============================================================
    Masrah Saydala — detective file theme in the PHARMACY THEATER
    TEAM colors: vivid stage red + bright antique gold on warm
-   parchment/espresso. Intro = red velvet curtains that part.
+   parchment/espresso. Intro = red VELVET curtains that part,
+   turn, and gather at the wings (RTL-safe, cannot persist).
    Scene engine: class-toggled CSS TRANSITIONS (IntersectionObserver).
    SAFETY: hidden start-states only inside html.js + motion-safe.
    MOBILE: dense, side-by-side hero + 2-up show cards, smaller art.
@@ -65,9 +66,21 @@
   60% { opacity:1; } 100% { opacity:1; filter:none; transform:scale(1); }
 }
 @keyframes receiptPrint { from { opacity:0; clip-path:inset(0 0 100% 0); transform:translateY(-10px); } to { opacity:1; clip-path:inset(0 0 0 0); transform:translateY(0); } }
-/* red velvet curtains part from center */
-@keyframes veilLeft  { from { transform:translateX(0); } to { transform:translateX(-101%); } }
-@keyframes veilRight { from { transform:translateX(0); } to { transform:translateX(101%); } }
+
+/* RED VELVET CURTAINS — heavy cloth parts from center, turns and gathers at the wings.
+   Physical left/right + paired outward transforms = RTL-safe (the old flex version
+   swapped sides and the panels crossed into the middle, never clearing). */
+@keyframes veilLeft {
+  0%   { transform:translateX(0)     rotateY(0)      scaleX(1); }
+  9%   { transform:translateX(-1.4%) rotateY(-2deg)  scaleX(1); }   /* slack takes up */
+  100% { transform:translateX(-100%) rotateY(-34deg) scaleX(.9); }  /* gathers toward the wing */
+}
+@keyframes veilRight {
+  0%   { transform:translateX(0)    rotateY(0)     scaleX(1); }
+  9%   { transform:translateX(1.4%) rotateY(2deg)  scaleX(1); }
+  100% { transform:translateX(100%) rotateY(34deg) scaleX(.9); }
+}
+@keyframes veilGone { from { opacity:1; visibility:visible; } to { opacity:0; visibility:hidden; } }
 
 /* ---------- base ---------- */
 * { box-sizing:border-box; }
@@ -111,20 +124,44 @@ body::before { content:""; position:fixed; inset:-6%; z-index:60; pointer-events
 body::after { content:""; position:fixed; inset:0; z-index:59; pointer-events:none; background:radial-gradient(125% 95% at 50% 8%, transparent 42%, rgba(26,18,11,.42) 78%, rgba(26,18,11,.62)); }
 ::selection { background:var(--burgundy); color:var(--paper); }
 
-/* RED VELVET CURTAIN INTRO — two panels that part from the center after a brief hold */
-#curtain { position:fixed; inset:0; z-index:80; pointer-events:none; display:flex; }
-#curtain::before, #curtain::after {
-  content:""; flex:1 1 50%; height:100%;
+/* ===== THE CURTAIN: pelmet + two velvet leaves ===== */
+#curtain {
+  position:fixed; inset:0; z-index:80; pointer-events:none; overflow:hidden;   /* clips exiting leaves: cannot linger */
+  perspective:1400px; perspective-origin:50% 26%;
   background:
-    linear-gradient(90deg, rgba(0,0,0,.45), rgba(0,0,0,0) 14%, rgba(255,255,255,.08) 50%, rgba(0,0,0,0) 86%, rgba(0,0,0,.45)),
-    repeating-linear-gradient(90deg, var(--velvet-a) 0 16px, var(--velvet-b) 16px 30px, var(--velvet-c) 30px 46px);
-  box-shadow:inset 0 60px 90px -40px rgba(0,0,0,.7), inset 0 -40px 60px -30px rgba(0,0,0,.6);
+    repeating-linear-gradient(90deg, rgba(0,0,0,.3) 0 2px, transparent 2px 26px) 0 8.4%/100% 12px no-repeat, /* fold shadow under pelmet */
+    linear-gradient(180deg, #42080f 0 5.5%, #6f0e1c 5.5% 7.6%, rgba(227,168,43,.55) 7.6% 8%, rgba(227,168,43,.18) 8% 8.4%, transparent 8.4%); /* valance + gold trim */
+  box-shadow:inset 0 16px 30px -10px rgba(0,0,0,.8);
 }
-#curtain::before { border-inline-end:2px solid rgba(0,0,0,.5); }
-#curtain::after  { border-inline-start:2px solid rgba(0,0,0,.5); }
+#curtain::before, #curtain::after {
+  content:""; position:absolute; top:8.4%; bottom:0; width:51%;
+  --fold:clamp(38px,6vw,74px);
+  background-color:var(--velvet-b);
+  background-image:
+    /* top drape shadow + weighted hem (velvet pools dark at the bottom) */
+    linear-gradient(180deg,
+      rgba(0,0,0,.6) 0%, rgba(0,0,0,.3) 5%, rgba(0,0,0,.05) 13%,
+      rgba(0,0,0,0) 38%, rgba(0,0,0,.04) 66%, rgba(0,0,0,.18) 82%,
+      rgba(0,0,0,.42) 92%, rgba(0,0,0,.66) 100%),
+    /* velvet sheen band — pile catches the house lights at an angle */
+    linear-gradient(102deg,
+      rgba(255,255,255,0) 24%, rgba(255,198,198,.13) 41%,
+      rgba(255,255,255,.05) 50%, rgba(255,198,198,0) 67%),
+    /* rounded pile folds (many stops, no hard stripes) */
+    repeating-linear-gradient(90deg,
+      #560a14 0%, #6f0e1c 9%, #8f1224 20%, #b0182c 33%,
+      #c8323f 46%, #d65a63 50%, #c8323f 54%, #b0182c 67%,
+      #8f1224 80%, #6f0e1c 91%, #560a14 100%);
+  background-size:100% 100%, 100% 100%, var(--fold) 100%;
+  background-repeat:no-repeat, no-repeat, repeat;
+  will-change:transform;
+}
+#curtain::before { left:0;  transform-origin:left center;  box-shadow:inset -24px 0 36px -12px rgba(0,0,0,.72), inset 0 0 70px rgba(0,0,0,.22); }  /* inner seam = right edge */
+#curtain::after  { right:0; transform-origin:right center; box-shadow:inset 24px 0 36px -12px rgba(0,0,0,.72), inset 0 0 70px rgba(0,0,0,.22); }  /* inner seam = left edge */
 @media (prefers-reduced-motion: no-preference) {
-  #curtain::before { animation:veilLeft 1.15s cubic-bezier(.7,0,.2,1) .5s both; }
-  #curtain::after  { animation:veilRight 1.15s cubic-bezier(.7,0,.2,1) .5s both; }
+  #curtain::before { animation:veilLeft 1.25s cubic-bezier(.55,.03,.2,1) .55s both; }
+  #curtain::after  { animation:veilRight 1.25s cubic-bezier(.55,.03,.2,1) .55s both; }
+  #curtain { animation:veilGone .45s linear 1.55s forwards; }   /* hard guarantee it's gone */
 }
 
 main { max-width:1180px; margin:0 auto; position:relative; padding-inline:clamp(1.25rem,4vw,2.75rem); overflow-x:clip; overflow-y:visible; }
@@ -272,9 +309,9 @@ a { color:var(--gold-bright); }
   @media (max-width:768px) {
     html.js .scene:not(.scene--load):not(.scene--instant) { opacity:0; filter:brightness(.55); transform:translateY(22px); transition:opacity .6s var(--ease) .08s, transform .75s var(--ease) .08s, filter .6s var(--ease) .08s; }
     html.js .scene.is-in:not(.scene--load):not(.scene--instant) { opacity:1; filter:none; transform:none; }
-    #curtain::before { animation:veilLeft .85s cubic-bezier(.7,0,.2,1) .35s both; }
-    #curtain::after  { animation:veilRight .85s cubic-bezier(.7,0,.2,1) .35s both; }
-    main::after { animation:sealSpin 1.5s cubic-bezier(.3,.9,.3,1) .45s both; }
+    #curtain::before { animation:veilLeft .95s cubic-bezier(.55,.03,.2,1) .35s both; }
+    #curtain::after  { animation:veilRight .95s cubic-bezier(.55,.03,.2,1) .35s both; }
+    #curtain { animation:veilGone .4s linear 1.15s forwards; }
     .hero.scene .scene-content { animation:riseSeq .7s var(--ease) .95s both; }
     .scene--load .scene-slate span { animation:typeIn .8s steps(24,end) 1.05s both; }
     .poster { animation:posterDevelopLite 1.35s ease .95s both; }
@@ -486,6 +523,10 @@ code { font-family:var(--font-mono); background:rgba(0,0,0,.08); padding:.2rem .
   html::after { opacity:.4; }
   body::before { animation:none; opacity:.04; }
   body::after { background:radial-gradient(135% 88% at 50% 6%, transparent 46%, rgba(26,18,11,.34) 82%, rgba(26,18,11,.5)); }
+
+  /* lighter cloth on small screens: fewer, narrower folds, no 3D turn (cheaper) */
+  #curtain { perspective:none; }
+  #curtain::before, #curtain::after { --fold:clamp(30px,9vw,52px); }
 
   .site-head { backdrop-filter:none; background:rgba(26,18,11,.97); gap:.5rem; padding:.6rem .8rem; }
   .brand { font-size:.8rem; letter-spacing:0; }
