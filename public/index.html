@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>مكتب حل المشاكل التافهة — مسرح صيدلة إسكندرية</title>
-  <meta name="description" content="احجز تذاكر عرض «مكتب حل المشاكل التافهة» — فريق مسرح صيدلة إسكندرية. الخميس 3 ديسمبر 2026، كلية الصيدلة، المبنى الجديد، الدور الثالث. الدفع عبر إنستاباي والتأكيد عبر واتساب.">
+  <meta name="description" content="احجز تذاكر عرض «مكتب حل المشاكل التافهة» — فريق مسرح صيدلة إسكندرية. الخميس 3 ديسمبر 2026، كلية الصيدلة، المبنى الجديد، الدور الثالث. الدفع عبر إنستاباي ورفع صورة الدفع على الموقع، والتأكيد يدوي بعد المراجعة.">
   <meta name="theme-color" content="#241a12">
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
   <link rel="stylesheet" href="css/main.css">
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
+<div id="curtain" aria-hidden="true"></div><!-- ⚙ red theater curtain intro -->
 <noscript><div class="banner banner-warn noscript">يتطلب الحجز تفعيل JavaScript في المتصفح.</div></noscript>
 <a class="skip-link" href="#booking">تخطَّ إلى الحجز</a>
 
@@ -34,7 +35,7 @@
 <main>
   <div id="test-banner" class="hazard" hidden>
     🧪 وضع الاختبار مفعّل — الحجوزات تجريبية بالكامل.
-    <small>لا تحوّل أي مبلغ فعلي. الأرقام الصادرة تجريبية وتُمسح قبل فتح الحجز للجمهور.</small>
+    <small>لا تحوّل أي مبلغ فعلي. الأرقام والصورة تجريبية وتُمسح قبل فتح الحجز للجمهور.</small>
   </div>
 
   <!-- SCENE 01 — HERO / POSTER -->
@@ -104,7 +105,7 @@
       <ol id="flow" class="flow" aria-label="مراحل الحجز">
         <li>اختر العرض</li>
         <li>تابع للدفع</li>
-        <li>سجّل وأرسل</li>
+        <li>أرفق الصورة</li><!-- ⚙ was "سجّل وأرسل" (WhatsApp) -->
         <li>انتظر التأكيد</li>
       </ol>
 
@@ -143,9 +144,9 @@
           <input id="name-input" type="text" maxlength="60" autocomplete="name" placeholder="مثال: حسن وائل">
         </div>
         <div class="field">
-          <label for="phone-input">رقم الموبايل (مطلوب لمطابقة الدفع)</label>
+          <label for="phone-input">رقم الموبايل (مطلوب لمطابقة الدفع والتواصل معك)</label>
           <input id="phone-input" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" dir="ltr" required placeholder="01012345678">
-          <p class="hint">يٌحفظ الاسم والرقم مع الحجز لمطابقة تحويل إنستاباي، ويظهران في رسالة واتساب. لن يٌعرضا للعامة.</p>
+          <p class="hint">يٌحفظ الاسم والرقم مع الحجز لمطابقة تحويل إنستاباي، ويُستخدمان للتواصل معك بعد المراجعة. لن يٌعرضا للعامة.</p>
         </div>
         <div class="field">
           <span class="label" id="qty-label">عدد التذاكر</span>
@@ -154,7 +155,7 @@
             <output id="qty-value" aria-live="polite">1</output>
             <button type="button" id="qty-plus" aria-label="زيادة عدد التذاكر">+</button>
           </div>
-          <p class="hint" id="qty-hint"></p>
+          <p class="hint" id="qty-hint"></p><!-- ⚙ no longer mentions a per-booking max -->
         </div>
         <dl class="summary">
           <div><dt>العرض</dt><dd id="sum-perf">—</dd></div>
@@ -165,36 +166,37 @@
 
         <!-- STEP 2: shows the payment panel. Writes NOTHING to the database. -->
         <button type="button" id="book-btn" class="btn btn-gold btn-big">متابعة إلى الدفع</button>
-        <p class="hint">هذه الخطوة تعرض لك المبلغ وتعليمات التحويل فقط — <b>لا تُسجَّـل أي تذكرة في النظام</b>. التسجيل يحدث فقط عند ضغط زر واتساب في الخطوة التالية.</p>
+        <p class="hint">هذه الخطوة تعرض لك المبلغ وتعليمات التحويل ومكان رفع الصورة فقط — <b>لا تُسجَّـل أي تذكرة في النظام</b>. التسجيل يحدث فقط عند أرفاق صورة الدفع والضغط على زر التسجيل في الخطوة التالية.</p>
         <p id="book-error" class="error" role="alert" hidden></p>
       </fieldset>
     </div>
   </section>
 
-  <!-- SCENE 04 — PAYMENT / WHATSAPP HANDOFF -->
+  <!-- SCENE 04 — PAYMENT / UPLOAD -->
   <section id="payment" class="payment paper scene scene--instant" data-scene="04" hidden aria-labelledby="pay-title">
     <div class="scene-slate" aria-hidden="true" dir="ltr">
       <b>SCENE 04</b>
-      <span>INSTAPAY TRANSFER — NOTHING IS RECORDED UNTIL YOU PRESS SEND</span>
+      <span>INSTAPAY TRANSFER — UPLOAD YOUR RECEIPT TO RECORD THE BOOKING</span>
     </div>
     <div class="scene-content">
       <h2 id="pay-title">أكمل الدفع عبر إنستاباي</h2>
 
-      <!-- STATE A: pre-commit. No reference, no ticket numbers — they don't exist yet. -->
+      <!-- STATE A: pre-record. No reference, no ticket numbers — they don't exist yet. -->
       <div id="pay-pending" class="pay-pending">
-        <b>لم يُسجَّـل أي شيء في النظام بعد.</b> راجع التفاصيل والمبلغ أدناه، حوّل عبر إنستاباي، ثم اضغط زر واتساب —
-        عندها فقط يُسجَّـل الحجز وتظهر أرقام التذاكر في الرسالة.
+        <b>لم يُسجَّـل أي شيء في النظام بعد.</b> حوّل المبلغ عبر إنستاباي إلى العنوان أدناه، ثم أرفق صورة التحويل واضغط «سجّل الحجز» —
+        عندها فقط يُحفظ الحجز وتظهر أرقام التذاكر.
       </div>
 
-      <!-- STATE B: post-commit. Revealed only after the WhatsApp press succeeds. -->
+      <!-- STATE B: post-record. Revealed only after a successful upload+record. -->
       <div id="pay-committed" hidden>
-        <p class="pay-status">تم تسجيل حجزك. <b>لم يتم التحقق من الدفع بعد</b> — أرفق صورة التحويل وأرسلها على واتساب.</p>
+        <p class="pay-status">تم تسجيل حجزك وحفظ صورة الدفع معه. <b>لم يتم التحقق بعد</b> — سيراجعها المنظمون ويتواصلون معك على رقمك بعد التأكد من التحويل.</p>
         <dl class="pay-details">
           <div><dt>رقم الحجز</dt><dd><code id="pay-ref" dir="ltr"></code></dd></div>
         </dl>
         <h3>أرقام التذاكر</h3>
         <ul id="pay-tickets" class="tickets"></ul>
-        <p class="hint">أرقام حجز مبدئية تصبح نهائية بعد مراجعة الدفع يدويًا، ثم يرسل المنظمون التذاكر النهائية على واتساب.</p>
+        <img id="pay-shot" class="pay-shot" alt="صورة الدفع المرفوعة" hidden>
+        <p class="hint">أرقام حجز مبدئية تصبح نهائية بعد مراجعة الدفع يدويًا.</p>
       </div>
 
       <div id="pay-test" class="banner banner-warn" hidden>وضع الاختبار: هذا حجز تجريبي — <b>لا تحوّل أي مبلغ</b>.</div>
@@ -216,20 +218,21 @@
         </div>
       </div>
 
-      <!-- STEP 3: the ONLY database write in the whole flow -->
-      <button type="button" id="wa-send" class="btn btn-wa btn-big">سجّل الحجز وأرسل صورة الدفع على واتساب</button>
-      <!-- revealed after commit; a native anchor, so it can never be popup-blocked -->
-      <a id="wa-open" class="btn btn-wa btn-big" target="_blank" rel="noopener" hidden>افتح واتساب وأرفق صورة الدفع</a>
-
-      <div id="wa-fallback" hidden>
-        <label class="label" for="wa-preview">نص رسالة واتساب الجاهزة</label>
-        <textarea id="wa-preview" rows="9" readonly dir="rtl"></textarea>
-        <button type="button" id="copy-message" class="btn btn-ghost">نسخ الرسالة</button>
-        <span id="msg-feedback" class="copy-feedback" aria-live="polite"></span>
-        <p class="hint">لم يٌضبط رقم واتساب المنظمين بعد، لذلك الإرسال معطّل. انسخ الرسالة لمراجعتها؛ سيُفعَّـل الزر تلقائيًا عند إضافة الرقم.</p>
+      <!-- ⚙ on-site receipt upload — attaching this image is what triggers the save -->
+      <div class="upload">
+        <h3>أرفق صورة دفع إنستاباي</h3>
+        <input id="pay-image-input" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <button type="button" id="pay-image-btn" class="btn btn-ghost btn-big">اختيار صورة التحويل</button>
+        <div id="pay-image-preview" class="preview" hidden>
+          <img id="pay-thumb" alt="معاينة صورة الدفع">
+          <span id="pay-image-meta" class="meta"></span>
+        </div>
+        <p class="hint">تُضغط الصورة على جهازك قبل الرفع (تصبح بضع مئات كيلوبايت) وتُحفظ مع الحجز لمراجعتها يدويًا. لن تُعرض للعامة.</p>
       </div>
 
-      <p class="hint">يفتح واتساب برسالة جاهزة — <b>أرفق صورة دفع إنستاباي يدويًا قبل الإرسال</b>؛ لا يمكن إرفاقها تلقائيًا.</p>
+      <!-- THE ONLY database write in the whole flow -->
+      <button type="button" id="pay-submit" class="btn btn-gold btn-big" disabled>سجّل الحجز وأرفق صورة الدفع</button>
+      <p class="hint">لن يُحفظ أي شيء في النظام حتى ترفق صورة وتضغط هذا الزر. إذا لم تصل الصورة أثناء المراجعة، يعود المقعد للمتاح عند إلغاء الحجز يدويًا.</p>
       <button type="button" id="new-booking" class="btn btn-ghost">تعديل الحجز</button>
       <p id="pay-error" class="error" role="alert" hidden></p>
     </div>
@@ -239,16 +242,16 @@
   <section id="scene-05" class="how scene" data-scene="05">
     <div class="scene-slate" aria-hidden="true" dir="ltr">
       <b>SCENE 05</b>
-      <span>PROCEDURE — FIVE STEPS TO CONFIRM</span>
+      <span>PROCEDURE — STEPS TO CONFIRM</span>
     </div>
     <div class="scene-content">
       <h2 id="how-title">خطوات الحجز</h2>
       <ol class="steps">
         <li>اختر العرض وعدد التذاكر، وأدخل رقم الموبايل.</li>
-        <li>اضغط «متابعة إلى الدفع» — تظهر لك التعليمات والمبلغ، ولا تُسجَّـل أي تذكرة.</li>
+        <li>اضغط «متابعة إلى الدفع» — تظهر لك التعليمات والمبلغ ومكان رفع الصورة، ولا تُسجَّـل أي تذكرة.</li>
         <li>حوّل المبلغ المطلوب عبر إنستاباي.</li>
-        <li>اضغط زر واتساب — هنا فقط يُسجَّـل الحجز ويظهر رقم الحجز وأرقام التذاكر في الرسالة.</li>
-        <li>أرفق صورة الدفع يدويًا وأرسلها؛ بعد المراجعة تصلك التذاكر النهائية.</li>
+        <li>أرفق صورة التحويل على الموقع واضغط «سجّل الحجز» — هنا فقط يُحفظ الحجز والصورة وتظهر أرقام التذاكر.</li>
+        <li>بعد المراجعة اليدوية يتواصل معك المنظمون على رقمك لتأكيد التذاكر.</li>
       </ol>
     </div>
   </section>
@@ -266,7 +269,8 @@
         <li><b>التاريخ:</b> الخميس 3 ديسمبر 2026.</li>
         <li><b>العرض الأول (A):</b> الأبواب 4:30 م — البداية 5:00 م.</li>
         <li><b>العرض الثاني (B):</b> الأبواب 6:30 م — البداية 7:00 م.</li>
-        <li><b>الدفع:</b> تحويل يدوي عبر إنستاباي، والتأكيد عبر واتساب.</li>
+        <li><b>الدفع:</b> تحويل يدوي عبر إنستاباي، ورفع صورة التحويل على الموقع.</li>
+        <li><b>التأكيد:</b> يدوي بعد مراجعة الصورة، ثم يتواصل المنظمون معك على رقمك.</li>
         <li><b>التواصل:</b>
           <a id="contact-wa" target="_blank" rel="noopener" hidden>واتساب المنظمين</a>
           <span id="contact-missing">سيُضاف رقم التواصل عند فتح الحجز.</span>
@@ -283,7 +287,7 @@
   </div>
   <div class="scene-content">
     <p>مكتب حل المشاكل التافهة — فريق مسرح صيدلة إسكندرية © 2026</p>
-    <p class="foot-note">الدفع يدوي عبر إنستاباي • التأكيد يدوي عبر واتساب • لا مدفوعات إلكترونية على الموقع</p>
+    <p class="foot-note">الدفع يدوي عبر إنستاباي • رفع صورة الدفع على الموقع • التأكيد يدوي بعد المراجعة • لا مدفوعات إلكترونية على الموقع</p>
   </div>
 </footer>
 <div id="status-live" class="visually-hidden" aria-live="polite"></div>
