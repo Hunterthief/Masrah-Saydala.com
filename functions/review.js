@@ -1,6 +1,7 @@
 // GET /review?tok=<REVIEW_TOKEN>  — organizer verification screen. Read-only.
-// No scripts, no writes, strict CSP. To change a status, run the SQL shown on each
-// card in the D1 console (kept that way on purpose: zero authenticated write surface).
+// No scripts, no writes, strict CSP. Statuses in this schema are only
+// 'pending_payment' and 'expired'; verification is the `verified` flag column.
+// To change state, run the SQL shown on each card in the D1 console.
 import { safeEqual, reviewList, EVENT } from '../lib/core.js';
 
 const esc = (s) => String(s == null ? '' : s)
@@ -12,18 +13,27 @@ const fmtTime = (ts, tz) => {
   try { return new Date(ts * 1000).toLocaleString('ar-EG', { timeZone: tz || EVENT.timezone, dateStyle: 'medium', timeStyle: 'short' }); }
   catch { return new Date(ts * 1000).toISOString(); }
 };
-const STATUS = { pending_payment: ['بانتظار المراجعة', 'warn'], confirmed: ['مؤكَّد', 'ok'], cancelled: ['ملغى', 'off'] };
 
 function card(r, token) {
-  const [label, cls] = STATUS[r.status] || [r.status, 'off'];
+  const released  = r.status === 'expired';
+  const confirmed = !released && Number(r.verified) === 1;
+  const cls   = released ? 'off' : (confirmed ? 'ok' : 'warn');
+  const label = released ? 'ملغى / مُطلق' : (confirmed ? 'مؤكَّد' : 'بانتظار المراجعة');
+
   const img = r.has_image
     ? `<img class="shot" loading="lazy" decoding="async" alt="صورة دفع ${esc(r.id)}" src="/api/payment?ref=${encodeURIComponent(r.id)}&tok=${encodeURIComponent(token)}">`
     : `<div class="shot none">لا صورة</div>`;
   const tickets = (r.ticket_numbers || []).map(t => `<li dir="ltr">${esc(t)}</li>`).join('');
   const phone = r.customer_phone || '';
   const contact = phone
-    ? `<a class="lnk" href="tel:+${esc(phone)}">اتصال</a> <a class="lnk wa" href="https://wa.me/${esc(phone)}?text=${encodeURIComponent('مرحبًا، بخصوص حجزك ' + r.id + ' في عرض مكتب حل المشاكل التافهة — تم استلام صورة الدفع وجاري المراجعة.')}">واتساب</a>`
+    ? `<a class="lnk" href="tel:+${esc(phone)}">اتصال</a> <a class="lnk wa" href="https://wa.me/${esc(phone)}?text=${encodeURIComponent('مرحبًا، بخصوص حجزك ' + r.id + ' في عرض مكتب حل المشاكل التافهة — ' + (confirmed ? 'تم تأكيد حجزك.' : 'جارٍ مراجعة صورة الدفع.'))}">واتساب</a>`
     : '';
+
+  const actions = released
+    ? `<pre class="sql"><code>UPDATE reservations SET status='pending_payment' WHERE id='${esc(r.id)}';   -- استرجاع المقعد</code></pre>`
+    : `<pre class="sql"><code>UPDATE reservations SET verified=1 WHERE id='${esc(r.id)}';   -- تأكيد بعد مطابقة التحويل</code></pre>
+       <pre class="sql dim"><code>UPDATE reservations SET status='expired' WHERE id='${esc(r.id)}';   -- إطلاق المقعد / إلغاء</code></pre>`;
+
   return `<article class="card ${cls}">
     <header><code dir="ltr">${esc(r.id)}</code><span class="pill ${cls}">${esc(label)}</span></header>
     <div class="body">
@@ -38,15 +48,14 @@ function card(r, token) {
       </dl>
       <ul class="tk">${tickets}</ul>
     </div>
-    <pre class="sql"><code>UPDATE reservations SET status='confirmed' WHERE id='${esc(r.id)}';</code></pre>
-    <pre class="sql dim"><code>UPDATE reservations SET status='cancelled' WHERE id='${esc(r.id)}';</code></pre>
+    ${actions}
   </article>`;
 }
 
 export async function onRequest(context) {
   const { request, env } = context;
   const H = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
-    'content-security-policy': "default-src 'none'; img-src data:; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'",
+    'content-security-policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'",
     'referrer-policy': 'no-referrer' };
   if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405, headers: { ...H, allow: 'GET' } });
 
@@ -59,7 +68,9 @@ export async function onRequest(context) {
   try { rows = await reviewList(env.DB); }
   catch (e) { console.error('review list failed:', e); return new Response('Database error', { status: 500, headers: H }); }
 
-  const pending = rows.filter(r => r.status === 'pending_payment').length;
+  const waiting   = rows.filter(r => r.status === 'pending_payment' && Number(r.verified) !== 1).length;
+  const confirmed = rows.filter(r => r.status === 'pending_payment' && Number(r.verified) === 1).length;
+  const released  = rows.filter(r => r.status === 'expired').length;
   const cards = rows.map(r => card(r, token)).join('') || '<p class="empty">لا حجوزات بعد.</p>';
 
   const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
@@ -87,13 +98,13 @@ dl{margin:0;display:grid;gap:.25rem}dl div{display:flex;gap:.5rem;flex-wrap:wrap
 .lnk{color:var(--gold);text-decoration:none;font-size:.8rem;border:1px solid #5f4426;border-radius:6px;padding:.05rem .45rem;margin-inline-start:.3rem}
 .lnk.wa{color:#bfe3c6;border-color:#2e5d3a}
 .sql{margin:.6rem 0 0;background:var(--ink);border:1px solid #3a2c1d;border-radius:8px;padding:.5rem .7rem;overflow:auto}
-.sql code{background:none;padding:0;font-size:.78rem;color:var(--gold);direction:ltr;display:block;text-align:left}
+.sql code{background:none;padding:0;font-size:.78rem;color:var(--gold);direction:ltr;display:block;text-align:left;white-space:pre-wrap}
 .sql.dim code{color:var(--dim)}
 .empty{color:var(--dim);text-align:center;padding:2rem}
 @media(max-width:560px){.body{grid-template-columns:1fr}.shot{width:100%;height:200px}}
 </style></head><body>
 <h1>مراجعة الحجوزات — ${esc(EVENT.name)}</h1>
-<div class="bar"><span>الإجمالي: <b>${rows.length}</b></span><span>بانتظار المراجعة: <b>${pending}</b></span><span class="n">اضغط على الصورة لفتحها بالحجم الكامل • لتغيير الحالة شغّل السطر البرمجي في الد1</span></div>
+<div class="bar"><span>بانتظار المراجعة: <b>${waiting}</b></span><span>مؤكَّدة: <b>${confirmed}</b></span><span>ملغاة: <b>${released}</b></span><span class="n">اضغط على الصورة لفتحها بالحجم الكامل • لتغيير الحالة شغّل السطر في الد1</span></div>
 ${cards}
 </body></html>`;
 
