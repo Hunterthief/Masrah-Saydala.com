@@ -6,6 +6,11 @@
 //   Step 3  attach screenshot (client-compressed)      -> still no DB, just a local preview
 //   Step 4  "سجّل الحجز وأرفق صورة الدفع" (#pay-submit) -> the ONLY POST /api/reservations
 //
+// CUSTOMER-VISIBLE DATA: the confirmation shows only the random reference (رقم الحجز)
+// and the buyer's own uploaded thumbnail. Sequential ticket numbers are NOT rendered
+// here and are NOT returned by the API (see core.shapeReservation); the organizer sees
+// them on /review via a direct DB read.
+//
 // IMAGE PIPELINE AND CSP: the page is served with img-src 'self' data: (NO blob:).
 // Therefore we must NEVER route the picked file through URL.createObjectURL/blob:.
 // We decode via createImageBitmap(file) (no URL at all, ignores img-src) and fall
@@ -93,7 +98,9 @@ function updateFlow() {
 
 function render() {
   const d = state.data; if (!d) return;
-  toggle('closed-banner', !d.booking_open);
+  // No closed-banner element: when a gate trips, the header pill reads "الحجز مغلق"
+  // and the cards disable themselves. (The old toggle here was an inverted boolean
+  // that showed the "not open yet" warning precisely WHILE booking was open.)
   toggle('test-banner', !d.config.test_mode);
   updateHeadStatus();
 
@@ -108,7 +115,7 @@ function render() {
     el.querySelector('.perf-date').textContent = formatDateAr(p.event_date);
     el.querySelector('.perf-doors').textContent = formatTime(p.doors_open);
     el.querySelector('.perf-starts').textContent = formatTime(p.starts_at);
-    el.querySelector('.perf-price').textContent = p.configured ? `${formatEGP(p.price_piasters)} ج.م` : 'يُعلن لاحقًا';
+    el.querySelector('.perf-price').textContent = p.configured ? `${formatEGP(p.price_piasters)} ج.م` : 'يٌعلن لاحقًا';
     el.querySelector('.perf-available').textContent = p.configured ? `${p.available} تذكرة` : '—';
     const badge = el.querySelector('.perf-badge');
     if (p.bookable) { badge.textContent = 'متاح للحجز'; badge.className = 'perf-badge ok'; }
@@ -202,7 +209,7 @@ function continueToPayment() {
   hideError();
   renderPendingPanel();
   render();
-  announce('حوّل المبلغ ثم أرفق صورة الدفع. لا يُسجَّـل الحجز إلا عند ضغط زر التسجيل.');
+  announce('حوّل المبلغ ثم أرفق صورة الدفع. لا يٌسجَّـل الحجز إلا عند ضغط زر التسجيل.');
   goTo($('payment'), '#pay-image-btn');   // auto-progress to the attach control
 }
 
@@ -395,17 +402,14 @@ function resetSubmit() {
   sub.focus({ preventScroll: true });
 }
 
-/* STATE B — reference + ticket numbers + the user's own thumbnail appear only now. */
+/* STATE B — reference + the user's own thumbnail appear only now.
+   Sequential ticket numbers are intentionally NOT shown to the customer (and are no
+   longer returned by the API); the organizer still sees them on /review via a DB read. */
 function renderCommitted(r) {
   toggle('pay-pending', true);
   toggle('pay-committed', false);
   setText('pay-ref', r.reference);
 
-  const list = $('pay-tickets');
-  if (list) {
-    list.textContent = '';
-    for (const t of r.ticket_numbers) { const li = document.createElement('li'); li.dir = 'ltr'; li.textContent = t; list.appendChild(li); }
-  }
   const shot = $('pay-shot');
   if (shot && state.paymentImage) { shot.src = state.paymentImage; shot.hidden = false; }   // data: URI — CSP-ok
 
